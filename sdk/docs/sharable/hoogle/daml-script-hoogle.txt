@@ -1526,18 +1526,6 @@ listVettedPackages :: (HasCallStack) => Script [PackageName]
 @url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#function-daml-script-internal-questions-packages-listallpackages-50063
 listAllPackages :: (HasCallStack) => Script [PackageName]
 
--- | Allocate a party with the given display name on the specified main participant using the party management service
---   and replicates it to the specified (possibly empty) list of additional participants. Commands submitted by the
---   allocated party will be routed to the main participant.
-@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#function-daml-script-internal-questions-partymanagement-allocatereplicatedpartyon-96671
-allocateReplicatedPartyOn :: Text -> ParticipantName -> [ParticipantName] -> Script Party
-
--- | Allocate a party with the given display name and id hint on the specified main participant using the party
---   management service and replicates it to the specified (possibly empty) list of additional participants. Commands
---   submitted by the allocated party will be routed to the main participant.
-@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#function-daml-script-internal-questions-partymanagement-allocatereplicatedpartywithhinton-30144
-allocateReplicatedPartyWithHintOn :: Text -> PartyIdHint -> ParticipantName -> [ParticipantName] -> Script Party
-
 -- | Throws an ``AnyException``, note that this function discards the stacktrace
 @url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#function-daml-script-internal-questions-exceptions-throwanyexception-70957
 throwAnyException :: AnyException -> Script t

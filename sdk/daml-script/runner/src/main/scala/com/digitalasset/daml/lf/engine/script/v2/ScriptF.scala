@@ -526,56 +526,24 @@ object ScriptF {
       } yield ValueList(contracts.map(Converter.fromCreated(_, tplId)).to(FrontStack))
   }
 
-  /** Allocate a party on the default, a singular, or multiple participants
-    *
-    *  @param participants if None we use default_participant. If None or Some
-    *  with empty list in second position, we use the old allocateParty logic. If
-    *  Some and list in second position not empty, we have the multi participant
-    *  workflow.
-    */
+  /** Allocate a party on the given participant, or on the default participant if None. */
   final case class AllocParty(
       partyHint: String,
-      participants: Option[
-        (Participant, List[Participant])
-      ],
+      participant: Option[Participant],
       unstablePkgId: PackageId,
   ) extends Cmd {
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
-    ): Future[ExtendedValue] = {
-      val owningParticipant = participants.map(_._1)
+    ): Future[ExtendedValue] =
       for {
-        owningClient <- env.clients.assertGetParticipantFuture(owningParticipant)
-
-        party <-
-          if (participants.map(_._2.isEmpty).getOrElse(true)) {
-            owningClient.allocateParty(partyHint)
-          } else {
-            for {
-              otherClients <- Future.traverse(participants.map(_._2).getOrElse(List.empty))(
-                participant => env.clients.assertGetParticipantFuture(participant)
-              )
-              clients = owningClient +: otherClients
-              participantIds = clients.map(_.getParticipantUid)
-
-              p <- owningClient.aggregateAllocatePartyOnMultipleParticipants(
-                clients,
-                partyHint,
-                owningClient.getParticipantUid.split("::").last,
-                participantIds,
-              )
-              _ <- Future.traverse(env.clients.participants.values)(
-                _.waitUntilHostingVisible(p, participantIds)
-              )
-            } yield p
-          }
+        client <- env.clients.assertGetParticipantFuture(participant)
+        party <- client.allocateParty(partyHint)
       } yield {
-        owningParticipant.foreach(env.addPartyParticipantMapping(party, _))
+        participant.foreach(env.addPartyParticipantMapping(party, _))
         ValueParty(party)
       }
-    }
   }
   final case class ListKnownParties(
       participant: Option[Participant],
@@ -1216,10 +1184,12 @@ object ScriptF {
         for {
           participantName <- Converter.toOptionalParticipantName(participantName)
           idHint <- Converter.toPartyIdHint(givenHint, requestedName, globalRandom)
-        } yield AllocParty(idHint, participantName.map(p => (p, List.empty)), unstablePkgId)
+        } yield AllocParty(idHint, participantName, unstablePkgId)
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
 
+  // Version 2 took a list of participants to support replicated party allocation, which has been removed.
+  // Current daml-script libraries send version 1 again; this is kept for DARs built with older ones.
   private def parseAllocPartyV2(v: ExtendedValue): Either[String, AllocParty] =
     v match {
       case ValueRecord(
@@ -1232,12 +1202,16 @@ object ScriptF {
           ) =>
         for {
           participantNames <- Converter.toParticipantNames(participantNames)
-          idHint <- Converter.toPartyIdHint(givenHint, requestedName, globalRandom)
-          allocArg = participantNames match {
-            case head :: tail => Some((head, tail))
-            case Nil => None
+          participantName <- participantNames match {
+            case Nil => Right(None)
+            case p :: Nil => Right(Some(p))
+            case _ =>
+              Left(
+                s"Allocating a party on multiple participants is not supported, got $participantNames"
+              )
           }
-        } yield AllocParty(idHint, allocArg, unstablePkgId)
+          idHint <- Converter.toPartyIdHint(givenHint, requestedName, globalRandom)
+        } yield AllocParty(idHint, participantName, unstablePkgId)
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
 
