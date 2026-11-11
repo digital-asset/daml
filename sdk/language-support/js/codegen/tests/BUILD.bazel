@@ -93,7 +93,7 @@ sh_test(
     args = [
         "$(location //:java)",
         "$(location //:yarn)",
-        "$(location //language-support/js/codegen:codegen)",
+        "$(location //language-support/codegen-main)",
         "$(location //canton:community_app_deploy.jar)",
         "$(location :build-and-lint.dar)",
         "$(location ts/package.json)",
@@ -109,7 +109,7 @@ sh_test(
     data = [
         ":build-and-lint.dar",
         ":hidden.dar",
-        "//language-support/js/codegen",
+        "//language-support/codegen-main",
         "//:java",
         "//:yarn",
         "//canton:community_app_deploy.jar",
@@ -144,7 +144,7 @@ sh_test(
     timeout = "long",
     srcs = ["npm_check.sh"],
     args = [
-        "$(location //language-support/js/codegen)",
+        "$(location //language-support/codegen-main)",
         "$(location @nodejs//:npm_bin)",
         "$(location @jq_dev_env//:jq)",
         "$(location :npmcheck1.dar)",
@@ -156,7 +156,7 @@ sh_test(
     data = [
         ":npmcheck1.dar",
         ":npmcheck2.dar",
-        "//language-support/js/codegen",
+        "//language-support/codegen-main",
         "//language-support/js/daml-types:npm_package",
         "@jq_dev_env//:jq",
         "@nodejs//:node",

@@ -9,6 +9,10 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+## Until 2026-11-10 (Exclusive)
+- Fixed Js Codegen @daml/types version generation
+- Stopped publishing java-codegen binary and js-codegen binary to Maven Central, these should be acquired via DPM.
+
 ## Until 2026-10-13 (Exclusive)
 - The following daml-script libraries are no longer published to Maven Central:
   `com.daml:daml-script-runner`, `com.daml:script-converter` and

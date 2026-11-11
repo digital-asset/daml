@@ -7,14 +7,10 @@
   type: jar-jarjar
 - target: //language-support/java/codegen:lib
   type: jar-scala
-- target: //language-support/java/codegen:binary
-  type: jar-jarjar
 - target: //language-support/java/json:json
   type: jar-scala
 - target: //language-support/js/codegen:lib
   type: jar-scala
-- target: //language-support/js/codegen:binary
-  type: jar-jarjar
 - target: //ledger-service/lf-value-json:lf-value-json
   type: jar-scala
 - target: //language-support/build-info:build-info
