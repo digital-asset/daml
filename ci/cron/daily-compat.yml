@@ -176,7 +176,7 @@ jobs:
               BRANCH="notices-update-$(Build.BuildId)"
               cp "$(Pipeline.Workspace)/notices/NOTICES" NOTICES
               git add NOTICES
-              open_superseding_pr "$BRANCH" "update NOTICES file" "" "$(Build.SourceBranchName)" "ci-generated-notices-update"
+              open_superseding_pr "$BRANCH" "update NOTICES file" "" "$(Build.SourceBranchName)" "ci-generated-notices-update" "no-release-notes"
               trigger_azure $AZURE_DEVOPS_EXT_PAT PRs --branch $BRANCH
           fi
         displayName: 'Open PR to update NOTICES file'
