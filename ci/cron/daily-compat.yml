@@ -255,7 +255,7 @@ jobs:
                   if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
                       echo "Branch $branch already exists on origin (opened by a previous run), not opening another PR."
                   else
-                      open_superseding_pr "$branch" "update canton to $version" "$body" "$(Build.SourceBranchName)" "ci-generated-canton-upgrade"
+                      open_superseding_pr "$branch" "update canton to $version" "$body" "$(Build.SourceBranchName)" "ci-generated-canton-upgrade" "no-release-notes"
                       az pipelines build queue --branch "$branch" \
                                                --definition-name "PRs" \
                                                --org "https://dev.azure.com/digitalasset" \
