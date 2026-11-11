@@ -16,7 +16,6 @@ aeson-pretty 0.8.9: http://github.com/informatikr/aeson-pretty : BSD 3-clause "N
 Animal Sniffer Annotations 1.27: https://www.mojohaus.org/animal-sniffer/animal-sniffer-annotations/ : MIT License
 anorm 2.7.0 : Apache License 2.0
 anorm-tokenizer 2.7.0 : Apache License 2.0
-ansi-regex 5.0.1: https://github.com/sindresorhus/ansi-regex : MIT License
 ansi-styles v4.3.0: https://github.com/chalk/ansi-styles : MIT License
 ansi-terminal 0.11.3: https://github.com/feuerbach/ansi-terminal : BSD 3-clause "New" or "Revised" License
 ansi-wl-pprint 0.6.9: http://github.com/ekmett/ansi-wl-pprint : BSD 3-clause "New" or "Revised" License
@@ -84,7 +83,7 @@ blaze-markup 0.8.2.8: http://jaspervdj.be/blaze : BSD 3-clause "New" or "Revised
 BoringSSL 20230818-snapshot-2ff4b968: https://boringssl.googlesource.com/boringssl : (SSLeay License - standalone AND OpenSSL License)
 bos/attoparsec 0.14.4: http://hackage.haskell.org/package/attoparsec : BSD 3-clause "New" or "Revised" License
 Bouncy Castle 1.86: http://www.bouncycastle.org : MIT License
-Bouncy Castle ASN.1 Extension and Utility APIs 1.86 : MIT License
+Bouncy Castle ASN.1 Extension and Utility APIs 1.86: https://www.bouncycastle.org/download/bouncy-castle-java : MIT License
 Bouncy Castle PKIX, CMS, EAC, TSP, PKCS, OCSP, CMP, and CRMF APIs 1.86: http://www.bouncycastle.org/java.html : MIT License
 brace-expansion 1.1.21: https://github.com/juliangruber/brace-expansion : MIT License
 brace-expansion 2.1.7: https://github.com/juliangruber/brace-expansion : MIT License
@@ -100,6 +99,7 @@ CEL Java Protobuf adapter 0.13.0 : Apache License 2.0
 CEL Java Runtime 0.13.0 : Apache License 2.0
 cereal-conduit 0.8.0: https://github.com/snoyberg/conduit : BSD 3-clause "New" or "Revised" License
 Chalk 4.1.2: https://github.com/sindresorhus/chalk : MIT License
+chalkansi-regex 5.0.1: https://github.com/chalk/ansi-regex : MIT License
 charset 0.3.9: http://github.com/ekmett/charset : BSD 3-clause "New" or "Revised" License
 Checker Qual 4.3.1: https://checkerframework.org : MIT License
 chimney 1.4.0 : Apache License 2.0
@@ -5929,7 +5929,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(ansi-regex 5.0.1)
+(chalkansi-regex 5.0.1)
 
 Upstream-Contact: https://github.com/sindresorhus/ansi-regex/issues
 Source: https://github.com/sindresorhus/ansi-regex
