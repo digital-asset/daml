@@ -1774,6 +1774,22 @@ tests TestArgs{..} =
             , "usePattern t = tSnd t"
             ]
         ]
+    
+    , dataDependenciesTest "Using explicitly pattern synonym constructor export"
+        [
+            (,) "Base.daml"
+            [ "module Base (MyType (MyTypePattern)) where"
+            , "data MyType = MyType"
+            , "pattern MyTypePattern = MyType"
+            ]
+        ]
+        [   (,) "Main.daml"
+            [ "module Main where"
+            , "import Base (MyType (..))"
+            , "usePattern : MyType -> MyType"
+            , "usePattern MyTypePattern = MyTypePattern"
+            ]
+        ]
 
     , dataDependenciesTest "Using complete pragma with pattern synonyms"
         [
