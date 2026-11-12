@@ -44,4 +44,5 @@ $bazel build \
   --experimental_profile_include_target_label \
   --build_event_json_file build-events.json \
   --build_event_publish_all_actions \
+  --noexecution_log_sort \
   --execution_log_json_file "$ARTIFACT_DIRS/logs/build_execution${execution_log_postfix}.json.gz"
