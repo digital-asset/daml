@@ -8,5 +8,5 @@ py_binary(
     srcs = ["setup.py"],
     data = ["//bazel/ide/hls"],
     tags = ["manual"],
-    deps = ["//bazel/ide:ide_setup"],
+    deps = ["//bazel/ide:setup_ide"],
 )
