@@ -118,6 +118,11 @@ convertPrim version "BEExternalCall" (TText :-> TText :-> TText :-> TText :-> TU
     pure $ EBuiltinFun BEExternalCall
 convertPrim _ "BETextToParty" (TText :-> TOptional TParty) =
     pure $ EBuiltinFun BETextToParty
+convertPrim version "BETextToContractId" (TText :-> TOptional (TContractId a))
+    | not (version `supports` featureTextToContractId) =
+        unsupportedFeature featureTextToContractId version
+    | otherwise =
+        pure $ EBuiltinFun BETextToContractId `ETyApp` a
 convertPrim _ "BETextToInt64" (TText :-> TOptional TInt64) =
     pure $ EBuiltinFun BETextToInt64
 convertPrim _ "BETextToCodePoints" (TText :-> TList TInt64) =

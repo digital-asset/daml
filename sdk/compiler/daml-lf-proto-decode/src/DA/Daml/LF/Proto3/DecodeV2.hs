@@ -403,9 +403,9 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionTEXT_TO_INT64 -> pure BETextToInt64
   LF2.BuiltinFunctionTEXT_TO_NUMERIC -> pure BETextToNumeric
   LF2.BuiltinFunctionTEXT_TO_CODE_POINTS -> pure BETextToCodePoints
-  LF2.BuiltinFunctionTEXT_TO_CONTRACT_ID ->
-    -- Dev-only builtin added in canton; not yet supported by damlc.
-    throwError (UnknownEnum "BuiltinFunction" 1001)
+  LF2.BuiltinFunctionTEXT_TO_CONTRACT_ID -> do
+    assertSupportsFeature featureTextToContractId
+    pure BETextToContractId
 
   LF2.BuiltinFunctionADD_NUMERIC   -> pure BEAddNumeric
   LF2.BuiltinFunctionSUB_NUMERIC   -> pure BESubNumeric

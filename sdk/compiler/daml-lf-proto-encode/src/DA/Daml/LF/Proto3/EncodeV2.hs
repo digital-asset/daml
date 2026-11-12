@@ -511,6 +511,9 @@ encodeBuiltinExpr = \case
     BETextToInt64 -> builtin P.BuiltinFunctionTEXT_TO_INT64
     BETextToNumeric -> builtin P.BuiltinFunctionTEXT_TO_NUMERIC
     BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_TO_CODE_POINTS
+    BETextToContractId -> do
+      assertSupportsFeature featureTextToContractId
+      builtin P.BuiltinFunctionTEXT_TO_CONTRACT_ID
 
     BEAddNumeric -> builtin P.BuiltinFunctionADD_NUMERIC
     BESubNumeric -> builtin P.BuiltinFunctionSUB_NUMERIC

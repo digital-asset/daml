@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE CPP #-}
 {-# OPTIONS -Wno-unused-binds #-} -- the opaque constructors are not exported
 
 -- | MOVE Prelude Daml-LF types and primitives, apart from templates/contracts.
@@ -136,6 +137,7 @@ instance Show (ContractId a) where
   show cid = case primitive @"BEContractIdToText" cid of
     None -> "<contract-id>"
     Some t -> t
+
 
 -- | Used to convert the type index of a `ContractId`, since they are just
 -- pointers. Note that subsequent fetches and exercises might fail if the

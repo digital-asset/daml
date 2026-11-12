@@ -53,6 +53,9 @@ module DA.Text
   , DA.Text.fromCodePoints
   , DA.Text.asciiToLower
   , DA.Text.asciiToUpper
+#ifdef DAML_TEXT_TO_CONTRACT_ID
+  , DA.Text.parseContractId
+#endif
   ) where
 
 import Prelude
@@ -345,3 +348,17 @@ asciiToUpper = fromCodePoints . fmap toUpperCP . toCodePoints
       | cpa <= x && x <= cpz = x - (cpa - cpA)
       | otherwise = x
     [cpA, cpa, cpz] = toCodePoints "Aaz"
+
+#ifdef DAML_TEXT_TO_CONTRACT_ID
+-- | Converts a `Text` to a `ContractId`. It returns `None` if the provided text
+-- is not a well-formed contract id.
+--
+-- Note that the text of a contract id is generally only available off-ledger,
+-- for example in Daml Script. A contract created in the current transaction has
+-- no final identifier until the transaction is committed, so `show` on a
+-- `ContractId` returns `"<contract-id>"` in on-ledger code. To use this
+-- function on a ledger, obtain the text off-ledger and pass it in as an
+-- argument.
+parseContractId : forall a. Text -> Optional (ContractId a)
+parseContractId = primitive @"BETextToContractId"
+#endif
