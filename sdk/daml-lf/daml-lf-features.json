@@ -92,6 +92,20 @@
       }
     }
   },
+  "featureTextToContractId" : {
+    "name" : "Text to ContractId conversion",
+    "cppFlag" : "DAML_TEXT_TO_CONTRACT_ID",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+            
+          }
+        }
+      }
+    }
+  },
   "featureExperimental" : {
     "name" : "Daml Experimental",
     "cppFlag" : "DAML_EXPERIMENTAL",
