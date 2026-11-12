@@ -14,8 +14,6 @@ $JqVersion = '1.7.1'
 $JqSha256 = '7451fbbf37feffb9bf262bd97c54f0da558c63f0748e64152dd87b0a07b6d6ab'
 $GcloudVersion = '592.0.0'
 $GcloudSha256 = '65002e0d679fc2ade00163b97637f45656d6fd5250d6f5962e4a1a555f2628ea'
-$GcloudBetaAsset = 'google-cloud-sdk-beta-20261030071842.tar.gz'
-$GcloudBetaSha256 = '0034138f7ee8d13690dae0a1443a09ecbdae1e45497360c14dabd2c57a79c8a2'
 
 $binDir = Join-Path $env:USERPROFILE '.local\bin'
 $gcloudRoot = Join-Path $env:USERPROFILE ".local\google-cloud-sdk-$GcloudVersion"
@@ -55,12 +53,6 @@ if (Test-Path $gcloudCompleteMarker) {
     Move-Item -Path (Join-Path $extractDir 'google-cloud-sdk') -Destination $gcloudRoot
     Remove-Item -Recurse -Force $extractDir
     Remove-Item -Force $gcloudDownload
-    $gcloudBetaDownload = Join-Path $env:TEMP $GcloudBetaAsset
-    Get-VerifiedFile "https://dl.google.com/dl/cloudsdk/channels/rapid/components/$GcloudBetaAsset" $GcloudBetaSha256 $gcloudBetaDownload
-    $windowsTar = Join-Path $env:SystemRoot 'System32\tar.exe'
-    & $windowsTar -xzf $gcloudBetaDownload -C $gcloudRoot
-    if ($LASTEXITCODE -ne 0) { throw "extracting $GcloudBetaAsset into $gcloudRoot failed (exit code $LASTEXITCODE)" }
-    Remove-Item -Force $gcloudBetaDownload
     New-Item -ItemType File -Path $gcloudCompleteMarker | Out-Null
 }
 
