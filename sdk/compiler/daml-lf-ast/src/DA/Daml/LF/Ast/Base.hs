@@ -333,6 +333,7 @@ data BuiltinExpr
   | BETextToInt64                -- :: Text -> Optional Int64
   | BETextToNumeric              -- :: ∀(s:nat). Numeric s -> Text -> Optional (Numeric s)
   | BETextToCodePoints           -- :: Text -> List Int64
+  | BETextToContractId           -- :: ∀(a:*). Text -> Optional (ContractId a)
   | BECodePointsToText           -- :: List Int64 -> Text
 
   | BESecp256k1Bool              -- :: Text -> Text -> Text -> Bool
