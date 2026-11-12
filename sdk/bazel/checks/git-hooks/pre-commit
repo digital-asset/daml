@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+checks=//bazel/checks:fast
+
+if ! command -v bazelisk > /dev/null; then
+  echo "bazelisk is not on PATH, so $checks cannot run." >&2
+  echo "Install bazelisk, commit with --no-verify, or remove this hook: bazelisk run //:setup_git_hooks -- remove" >&2
+  exit 1
+fi
+
+cd sdk
+if ! bazelisk test "$checks" --test_output=errors; then
+  echo "Fix the failing checks as described in sdk/bazel/checks/<name>/<name>-check.md, or commit with --no-verify." >&2
+  exit 1
+fi
