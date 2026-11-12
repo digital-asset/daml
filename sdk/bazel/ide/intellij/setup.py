@@ -6,7 +6,7 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-import ide_setup
+import setup_ide
 
 PLUGIN = "boo.fox.haskelllsp"
 PLUGIN_NAME = "Haskell LSP"
@@ -62,18 +62,18 @@ def update(path: Path, remove: bool) -> bool:
         print(f"removed {path}")
         return True
     if path.exists():
-        print(f"backed up {path} to {ide_setup.backup(path)}")
-    ide_setup.write_text(path, render(project))
+        print(f"backed up {path} to {setup_ide.backup(path)}")
+    setup_ide.write_text(path, render(project))
     print(f"updated {path}")
     return True
 
 
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(prog="bazelisk run //:intellij_setup --")
+    parser = argparse.ArgumentParser(prog="bazelisk run //:setup_intellij --")
     parser.add_argument("--remove", action="store_true", help=f"stop requiring {PLUGIN_NAME} for this project")
     args = parser.parse_args(argv)
 
-    root = ide_setup.workspace()
+    root = setup_ide.workspace()
     if args.remove:
         return 0 if update(root / REQUIRED_PLUGINS, remove=True) else 1
 
@@ -83,9 +83,9 @@ def main(argv: list[str]) -> int:
         print(f"skipped {root / REQUIRED_PLUGINS}: open {root} in IntelliJ once, then run this again")
         ok = False
 
-    wrapper = root / ide_setup.HLS_WRAPPER
+    wrapper = root / setup_ide.HLS_WRAPPER
     print()
-    ide_setup.announce(root, ide_setup.record_bazel(root))
+    setup_ide.announce(root, setup_ide.record_bazel(root))
     print(f"Reopen {root} in IntelliJ and install {PLUGIN_NAME} when it reports the missing required plugin;")
     print("LSP4IJ is installed along with it.")
     print(f"Then set Settings | Tools | {PLUGIN_NAME} | Haskell Language Server path to:")
