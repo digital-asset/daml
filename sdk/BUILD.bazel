@@ -165,6 +165,12 @@ alias(
     tags = ["manual"],
 )
 
+alias(
+    name = "setup_git_hooks",
+    actual = "//bazel/checks/git-hooks",
+    tags = ["manual"],
+)
+
 genrule(
     name = "java_rlocation_path",
     outs = ["java_rlocation_path.txt"],
