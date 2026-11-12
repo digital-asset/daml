@@ -8,13 +8,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-import ide_setup
+import setup_ide
 
 EXTENSION = "haskell.haskell"
 EDITOR_CLIS = ("codium", "code")
 SETTINGS = {
     "haskell.manageHLS": "PATH",
-    "haskell.serverExecutablePath": "${workspaceFolder}/" + ide_setup.HLS_WRAPPER.as_posix(),
+    "haskell.serverExecutablePath": "${workspaceFolder}/" + setup_ide.HLS_WRAPPER.as_posix(),
 }
 
 
@@ -65,8 +65,8 @@ def update(path: Path, merge, remove: bool, snippet: dict) -> bool:
         print(f"unchanged {path}")
         return True
     if path.exists():
-        print(f"backed up {path} to {ide_setup.backup(path)}")
-    ide_setup.write_text(path, json.dumps(merged, indent=4) + "\n")
+        print(f"backed up {path} to {setup_ide.backup(path)}")
+    setup_ide.write_text(path, json.dumps(merged, indent=4) + "\n")
     print(f"updated {path}")
     return True
 
@@ -80,12 +80,12 @@ def install_extension() -> None:
 
 
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(prog="bazelisk run //:vscode_setup --")
+    parser = argparse.ArgumentParser(prog="bazelisk run //:setup_vscode --")
     parser.add_argument("--remove", action="store_true", help="undo the workspace changes made by this setup")
     parser.add_argument("--install-extension", action="store_true", help=f"also install {EXTENSION} via codium/code")
     args = parser.parse_args(argv)
 
-    root = ide_setup.workspace()
+    root = setup_ide.workspace()
     vscode = root / ".vscode"
     ok = update(vscode / "settings.json", merge_settings, args.remove, SETTINGS)
     ok = update(vscode / "extensions.json", merge_recommendations, args.remove, {"recommendations": [EXTENSION]}) and ok
@@ -95,7 +95,7 @@ def main(argv: list[str]) -> int:
     if args.install_extension:
         install_extension()
     print()
-    ide_setup.announce(root, ide_setup.record_bazel(root))
+    setup_ide.announce(root, setup_ide.record_bazel(root))
     print(f"Open {root} as the folder in VS Code or VSCodium and accept the {EXTENSION} recommendation.")
     print("The first start builds the HLS cradle; progress shows in Output > Haskell.")
     return 0 if ok else 1

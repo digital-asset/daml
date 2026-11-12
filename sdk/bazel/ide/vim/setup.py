@@ -5,7 +5,7 @@ import argparse
 import sys
 from pathlib import Path
 
-import ide_setup
+import setup_ide
 
 EXRC = Path(".exrc")
 SHADOWING_FILES = (".nvim.lua", ".nvimrc", ".vimrc", "_vimrc")
@@ -25,22 +25,22 @@ def render(hls_bin: Path) -> str:
 
 
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(prog="bazelisk run //:vim_setup --")
+    parser = argparse.ArgumentParser(prog="bazelisk run //:setup_vim --")
     parser.add_argument("--remove", action="store_true", help=f"delete the generated {EXRC}")
     args = parser.parse_args(argv)
 
-    root = ide_setup.workspace()
-    hls_bin = root / ide_setup.HLS_BIN
+    root = setup_ide.workspace()
+    hls_bin = root / setup_ide.HLS_BIN
     target = root / EXRC
     content = render(hls_bin)
     signature = str(hls_bin)
 
     if args.remove:
-        result = ide_setup.remove_generated_file(target, content, signature)
+        result = setup_ide.remove_generated_file(target, content, signature)
         print(f"{result} {target}")
         return 1 if result == "conflict" else 0
 
-    result = ide_setup.install_generated_file(target, content, signature)
+    result = setup_ide.install_generated_file(target, content, signature)
     print(f"{result} {target}")
     if result == "conflict":
         print(f"{target} was not written by this setup; add these lines to it:")
@@ -52,7 +52,7 @@ def main(argv: list[str]) -> int:
         print(f"note: {', '.join(shadowing)} in {root} is read instead of {EXRC}; add the lines above there")
 
     print()
-    ide_setup.announce(root, ide_setup.record_bazel(root))
+    setup_ide.announce(root, setup_ide.record_bazel(root))
     print(f"{EXRC} puts {hls_bin} first on Vim's PATH, so any LSP client that runs")
     print("`haskell-language-server-wrapper` (nvim-lspconfig hls, coc.nvim, ALE, vim-lsp) picks it up.")
     print("Project files are only read with 'exrc' enabled:")
