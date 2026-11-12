@@ -12,7 +12,7 @@ if [[ -z "$bazel" && -f "$ide_dir/.bazel-path" ]]; then
   bazel="$(cat "$ide_dir/.bazel-path")"
 fi
 if [[ -z "$bazel" ]]; then
-  echo "daml ide: neither bazelisk nor bazel is on PATH; run 'bazelisk run //:ide_setup' once from a shell" >&2
+  echo "daml ide: neither bazelisk nor bazel is on PATH; run 'bazelisk run //:setup_ide' once from a shell" >&2
   exit 127
 fi
 
