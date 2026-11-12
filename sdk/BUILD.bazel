@@ -136,31 +136,31 @@ alias(
 )
 
 alias(
-    name = "ide_setup",
+    name = "setup_ide",
     actual = "//bazel/ide:setup",
     tags = ["manual"],
 )
 
 alias(
-    name = "vscode_setup",
+    name = "setup_vscode",
     actual = "//bazel/ide/vscode:setup",
     tags = ["manual"],
 )
 
 alias(
-    name = "vim_setup",
+    name = "setup_vim",
     actual = "//bazel/ide/vim:setup",
     tags = ["manual"],
 )
 
 alias(
-    name = "emacs_setup",
+    name = "setup_emacs",
     actual = "//bazel/ide/emacs:setup",
     tags = ["manual"],
 )
 
 alias(
-    name = "intellij_setup",
+    name = "setup_intellij",
     actual = "//bazel/ide/intellij:setup",
     tags = ["manual"],
 )

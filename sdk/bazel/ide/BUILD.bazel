@@ -4,8 +4,8 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 
 py_library(
-    name = "ide_setup",
-    srcs = ["ide_setup.py"],
+    name = "setup_ide",
+    srcs = ["setup_ide.py"],
     imports = ["."],
     tags = ["manual"],
 )
@@ -15,5 +15,5 @@ py_binary(
     srcs = ["setup.py"],
     data = ["//bazel/ide/hls"],
     tags = ["manual"],
-    deps = [":ide_setup"],
+    deps = [":setup_ide"],
 )
