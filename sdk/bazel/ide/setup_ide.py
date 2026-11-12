@@ -14,7 +14,7 @@ BAZEL_RECORD = Path("bazel/ide/.bazel-path")
 def workspace() -> Path:
     directory = os.environ.get("BUILD_WORKSPACE_DIRECTORY")
     if not directory:
-        sys.exit("error: run this through Bazel, for example `bazelisk run //:ide_setup`")
+        sys.exit("error: run this through Bazel, for example `bazelisk run //:setup_ide`")
     return Path(directory)
 
 
