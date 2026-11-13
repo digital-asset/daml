@@ -1,45 +1,49 @@
 #!/usr/bin/env bash
-# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
-DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+echo "TODO: ci/configure-bazel.sh only exists because release-trigger calls it; remove it once release-trigger configures Bazel itself" >&2
 
-cd $DIR/../sdk
-if [ -n "${BAZEL_CONFIG_DIR:-}" ]; then
-  cd "$BAZEL_CONFIG_DIR"
+credentials="${GOOGLE_APPLICATION_CREDENTIALS_CONTENT:-}"
+unset GOOGLE_APPLICATION_CREDENTIALS_CONTENT
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+bazelrc_local="$repo_root/sdk/.bazelrc.local"
+
+on_windows() {
+  case "$(uname -s)" in
+    MINGW*|MSYS*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+run_powershell() {
+  powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$(cygpath -w "$1")"
+}
+
+settings=('build --disk_cache=')
+
+if on_windows; then
+  run_powershell "$repo_root/ci/dev-env-install.ps1"
+  run_powershell "$repo_root/ci/clean-bazel-build-folder.ps1"
+  settings+=('startup --output_base=C:/b')
 fi
 
-# Note: date segment here has to match .bazelrc for dev machines to benefit
-# from CI cache
-CACHE_URL=http://10.0.2.10/cache/202405
-
-case $(uname) in
-Linux)
-  echo "build:linux --remote_cache=$CACHE_URL/ubuntu" > .bazelrc.local
-  echo "build --remote_upload_local_results=true" >> .bazelrc.local
-  echo "CACHE_URL=$CACHE_URL/ubuntu"
-  ;;
-Darwin)
-  if [ "${IS_FORK:-}" = "False" ]; then
-    GOOGLE_APPLICATION_CREDENTIALS=$(mktemp .tmp.XXXXXXXXXX)
-    echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > "$GOOGLE_APPLICATION_CREDENTIALS"
-    echo "build --remote_upload_local_results=true --google_credentials=$GOOGLE_APPLICATION_CREDENTIALS" > .bazelrc.local
+if [ "${IS_FORK:-}" != "True" ] && [ -n "$credentials" ]; then
+  key_dir="${AGENT_TEMPDIRECTORY:-${TMPDIR:-/tmp}}"
+  if on_windows; then
+    key_dir="$(cygpath -m "$key_dir")"
   fi
-  echo "CACHE_URL=$(cat .bazelrc | grep -o "https://.*/macos")"
-  ;;
-MINGW*)
-  RULES_HASKELL_REV="$(sed -n 's/rules_haskell_version = "\(.*\)"$/\1/p' $DIR/../sdk/deps.bzl)"
-  echo "Working directory: $PWD"
-  echo "build --config windows" > .bazelrc.local
-  SUFFIX="$(echo $PWD $RULES_HASKELL_REV | openssl dgst -md5 -r)"
-  CACHE_URL=$CACHE_URL/windows/${SUFFIX:0:4}
-  echo "build:windows --remote_cache=$CACHE_URL" >> .bazelrc.local
-  echo "build --remote_upload_local_results=true" >> .bazelrc.local
-  echo "CACHE_URL=$CACHE_URL"
-  ;;
-*)
-  echo "unknown kernel: $(uname)"
-  exit 1
-  ;;
-esac
+  key="$key_dir/gcred-${BUILD_BUILDID:-local}.json"
+  rm -f "$key"
+  (umask 077 && set -C && printf '%s' "$credentials" > "$key")
+  settings+=("build --remote_upload_local_results=true --google_credentials=$key")
+  echo "credentials present; remote cache uploads enabled"
+else
+  echo "no credentials; remote cache is read-only"
+fi
+
+printf '%s\n' "${settings[@]}" > "$bazelrc_local"
+echo "Wrote $bazelrc_local:"
+cat "$bazelrc_local"

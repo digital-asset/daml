@@ -1,0 +1,17 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@host_git//:git.bzl", "GIT_PATH")
+load("@rules_python//python:defs.bzl", "py_binary")
+
+py_binary(
+    name = "git-hooks",
+    srcs = ["git_hooks.py"],
+    data = [":pre-commit"],
+    env = {
+        "GIT": GIT_PATH,
+        "HOOK": "$(rlocationpath :pre-commit)",
+    },
+    main = "git_hooks.py",
+    deps = ["@rules_python//python/runfiles"],
+)

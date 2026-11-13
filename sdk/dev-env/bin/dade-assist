@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 
-DADE_CURRENT_SCRIPT_DIR="$( dirname $( readlink -f "${BASH_SOURCE[0]}" ) )"
-source "$DADE_CURRENT_SCRIPT_DIR/../lib/dade-common"
-
-linkTool java out "${DADE_DEVENV_DIR}/jdk"
-
-exec "${DADE_DEVENV_DIR}/lib/dade-dump-profile"
+echo "TODO: sdk/dev-env/bin/dade-assist is a placeholder for release-trigger, which evals its stdout; ci/dev-env-install.sh puts the tools on PATH instead. Remove it once release-trigger no longer calls it" >&2

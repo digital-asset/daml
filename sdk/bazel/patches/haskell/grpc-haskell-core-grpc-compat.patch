@@ -1,0 +1,124 @@
+diff -ruN a/cbits/grpc_haskell.c b/cbits/grpc_haskell.c
+--- a/cbits/grpc_haskell.c	2026-04-13 18:40:59.701737256 +0200
++++ b/cbits/grpc_haskell.c	2026-04-13 18:42:45.532380683 +0200
+@@ -455,32 +455,24 @@
+ 
+ grpc_server_credentials* ssl_server_credentials_create_internal(
+   const char* pem_root_certs, const char* pem_key, const char* pem_cert,
+-  grpc_ssl_client_certificate_request_type force_client_auth){
+-
+-  grpc_ssl_pem_key_cert_pair pair = {pem_key, pem_cert};
+-  grpc_server_credentials* creds = grpc_ssl_server_credentials_create_ex(
+-    pem_root_certs, &pair, 1, force_client_auth, NULL);
+-  return creds;
++  grpc_ssl_client_certificate_request_type force_client_auth) {
++  /* Removed in gRPC 1.74; daml never calls this wrapper. */
++  (void)pem_root_certs; (void)pem_key; (void)pem_cert; (void)force_client_auth;
++  return NULL;
+ }
+ 
+ grpc_channel_credentials* grpc_ssl_credentials_create_internal(
+-  const char* pem_root_certs, const char* pem_key, const char* pem_cert){
+-
+-  grpc_channel_credentials* creds;
+-  if(pem_key && pem_cert){
+-    grpc_ssl_pem_key_cert_pair pair = {pem_key, pem_cert};
+-    creds = grpc_ssl_credentials_create(pem_root_certs, &pair, NULL, NULL);
+-  }
+-  else{
+-    creds = grpc_ssl_credentials_create(pem_root_certs, NULL, NULL, NULL);
+-  }
+-  return creds;
++  const char* pem_root_certs, const char* pem_key, const char* pem_cert) {
++  /* Removed in gRPC 1.74; daml never calls this wrapper. */
++  (void)pem_root_certs; (void)pem_key; (void)pem_cert;
++  return NULL;
+ }
+ 
+ void grpc_server_credentials_set_auth_metadata_processor_(
+-  grpc_server_credentials* creds, grpc_auth_metadata_processor* p){
+-
+-  grpc_server_credentials_set_auth_metadata_processor(creds, *p);
++  grpc_server_credentials* creds, grpc_auth_metadata_processor* p) {
++  /* Removed in gRPC 1.74; daml never calls this wrapper. */
++  (void)creds;
++  (void)p;
+ }
+ 
+ grpc_auth_metadata_processor* mk_auth_metadata_processor(
+@@ -497,9 +489,10 @@
+ }
+ 
+ grpc_call_credentials* grpc_metadata_credentials_create_from_plugin_(
+-  grpc_metadata_credentials_plugin* plugin){
+-
+-  return grpc_metadata_credentials_create_from_plugin(*plugin, GRPC_PRIVACY_AND_INTEGRITY, NULL);
++  grpc_metadata_credentials_plugin* plugin) {
++  /* Removed in gRPC 1.74; daml never calls this wrapper. */
++  (void)plugin;
++  return NULL;
+ }
+ 
+ //This is a hack to work around GHC being unable to deal with raw struct params.
+diff -ruN a/include/grpc_haskell.h b/include/grpc_haskell.h
+--- a/include/grpc_haskell.h	2026-04-13 18:40:59.698987139 +0200
++++ b/include/grpc_haskell.h	2026-04-13 18:41:18.050228775 +0200
+@@ -8,6 +8,58 @@
+ #include <grpc/byte_buffer.h>
+ #include <grpc/byte_buffer_reader.h>
+ 
++/* gRPC >= 1.74 moved credential APIs to a separate header. */
++#include <grpc/credentials.h>
++
++/*
++ * Compatibility shims for gRPC >= 1.74 which removed the legacy
++ * auth-metadata-processor / credentials-plugin C API.
++ * The daml codebase does not call these APIs; the stubs exist
++ * only to keep the c2hs bindings and FFI wrappers compiling.
++ */
++#ifndef GRPC_METADATA_CREDENTIALS_PLUGIN_SYNC_MAX
++#define GRPC_METADATA_CREDENTIALS_PLUGIN_SYNC_MAX 4
++
++typedef struct grpc_auth_metadata_context {
++  const char *service_url;
++  const char *method_name;
++  const grpc_auth_context *channel_auth_context;
++} grpc_auth_metadata_context;
++
++typedef void (*grpc_process_auth_metadata_done_cb)(
++    void *user_data, const grpc_metadata *consumed_md,
++    size_t num_consumed_md, const grpc_metadata *response_md,
++    size_t num_response_md, grpc_status_code status,
++    const char *error_details);
++
++typedef void (*grpc_credentials_plugin_metadata_cb)(
++    void *user_data, const grpc_metadata *creds_md, size_t num_creds_md,
++    grpc_status_code status, const char *error_details);
++
++typedef struct grpc_auth_metadata_processor {
++  void (*process)(void *state, grpc_auth_context *context,
++                  const grpc_metadata *md, size_t num_md,
++                  grpc_process_auth_metadata_done_cb cb, void *user_data);
++  void (*destroy)(void *state);
++  void *state;
++} grpc_auth_metadata_processor;
++
++typedef struct grpc_metadata_credentials_plugin {
++  int (*get_metadata)(void *state,
++                      grpc_auth_metadata_context context,
++                      grpc_credentials_plugin_metadata_cb cb,
++                      void *user_data,
++                      grpc_metadata creds_md[GRPC_METADATA_CREDENTIALS_PLUGIN_SYNC_MAX],
++                      size_t *num_creds_md,
++                      grpc_status_code *status,
++                      const char **error_details);
++  void (*destroy)(void *state);
++  void *state;
++  const char *type;
++} grpc_metadata_credentials_plugin;
++
++#endif /* GRPC_METADATA_CREDENTIALS_PLUGIN_SYNC_MAX */
++
+ grpc_event *grpc_completion_queue_next_(grpc_completion_queue *cq,
+                                        gpr_timespec *deadline,
+                                        void *reserved);

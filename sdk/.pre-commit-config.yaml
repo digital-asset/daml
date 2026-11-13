@@ -11,42 +11,43 @@ repos:
     - id: hlint
       name: hlint
       language: system
-      entry: "hlint -j --hint=sdk/.hlint.yaml"
+      entry: "bash -c 'cd sdk/ && bazelisk run //bazel/checks/hlint -- check \"${@#sdk/}\"' bash"
       require_serial: true
       types: [haskell]
     - id: scalafmt
       name: scalafmt
       language: system
       require_serial: true
-      entry: "scalafmt --config=sdk/.scalafmt.conf --respect-project-filters"
+      entry: "bash -c 'cd sdk/ && bazelisk run //bazel/checks/scalafmt -- update \"${@#sdk/}\"' bash"
       types: [scala]
     - id: javafmt
       name: javafmt
       language: system
       require_serial: true
-      entry: "javafmt --set-exit-if-changed --replace"
+      entry: "bash -c 'cd sdk/ && bazelisk run //bazel/checks/google-java-format -- update \"${@#sdk/}\"' bash"
       types: [java]
     - id: buildifier
       name: buildifier
       language: system
       require_serial: true
-      entry: "bash -c 'root=$PWD && cd sdk/ && bazel run @com_github_bazelbuild_buildtools//buildifier -- -mode=fix -v \"${@/#/$root/}\"' bash"
+      pass_filenames: false
+      entry: "bash -c 'cd sdk/ && bazelisk run //bazel/checks/buildifier:update'"
       types: [bazel]
     - id: copyrights
       name: copyright headers
       description: Idempotently add DA copyright headers to source files.
       language: system
       pass_filenames: false
-      entry: "bash -c 'unset GIT_DIR; dade-copyright-headers update'"
+      entry: "bash -c 'unset GIT_DIR; cd sdk/ && bazelisk run //bazel/checks/copyright -- update'"
       types: [text]
     - id: platform-independence-check
       name: platform-independence-check
       language: system
       pass_filenames: false
-      entry: "sdk/pre-commit/platform-independence-check.sh"
-    - id: yarn-lock-check
-      name: yarn-lock-check
+      entry: "bash -c 'if [ ${RUN_PLATFORM_INDEPENDENCE_CHECK:-no} = yes ]; then cd sdk/ && bazelisk run //bazel/checks/platform-independence -- check; fi'"
+    - id: pnpm-lockfiles
+      name: pnpm lockfiles
       language: system
-      pass_filenames: true
-      files: ^sdk/(package.json|yarn.lock)$
-      entry: "sdk/pre-commit/yarn-lock-check.sh"
+      pass_filenames: false
+      files: '^sdk/(.*/)?(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|\.npmrc)$'
+      entry: "bash -c 'cd sdk/ && bazelisk run //bazel/checks/pnpm -- check'"

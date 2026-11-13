@@ -1,0 +1,35 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(":defs.bzl", "hls_platform_targets", "supported_platforms_only", "toolchain_ghc")
+
+hls_platform_targets()
+
+toolchain_ghc(
+    name = "ghc",
+    tags = ["manual"],
+    target_compatible_with = supported_platforms_only(),
+)
+
+sh_binary(
+    name = "hls",
+    srcs = ["hls.sh"],
+    data = [
+        ":binary",
+        ":ghc",
+        ":libraries",
+    ],
+    env = {
+        "DAML_IDE_GHC": "$(rlocationpath :ghc)",
+        "DAML_IDE_HLS": "$(rlocationpath :binary)",
+    },
+    tags = ["manual"],
+    target_compatible_with = supported_platforms_only(),
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+exports_files([
+    "bin/haskell-language-server-wrapper",
+    "cradle",
+    "run_bazel",
+])

@@ -33,14 +33,13 @@ steps:
         fi
     }
     open_pr() {
-      local branch title body pr_number base labels header output
+      local branch title body pr_number base label header output
       branch="$1"
       title="$2"
       body="${3:-}"
       pr_number="${4:-}"
       base="${5:-main}"
-      # Any remaining arguments are labels to add to the PR.
-      labels=("${@:6}")
+      label="${6:-}"
       header=$(mktemp)
       output=$(mktemp)
 
@@ -69,11 +68,11 @@ steps:
       if [ -n "$pr_number" ]; then
           jq '.number' "$output" > "$pr_number"
       fi
-      if [ ${#labels[@]} -gt 0 ]; then
+      if [ -n "$label" ]; then
           local pr_num
           pr_num=$(jq -r '.number' "$output")
-          printf '%s\n' "${labels[@]}" \
-            | jq -R . | jq -s '{"labels": .}' \
+          jq -n --arg label "$label" \
+                '{"labels": [$label]}' \
             | curl -H "Content-Type: application/json" \
                    -H "$(get_gh_auth_header)" \
                    --fail \
@@ -127,16 +126,14 @@ steps:
     }
     # Like open_pr, but the PR is labelled and lists the older open PRs with
     # the same label and base it supersedes; each of those gets a
-    # "superseded by" comment. Any arguments after the label are extra labels
-    # to add to the PR (they are not used to find superseded PRs).
+    # "superseded by" comment.
     open_superseding_pr() {
-      local branch title body base label extra_labels superseded pr_file new_pr old_pr
+      local branch title body base label superseded pr_file new_pr old_pr
       branch="$1"
       title="$2"
       body="$3"
       base="$4"
       label="$5"
-      extra_labels=("${@:6}")
 
       superseded=$(list_open_prs_with_label "$label" "$base") || superseded=""
       if [ -n "$superseded" ]; then
@@ -144,7 +141,7 @@ steps:
       fi
 
       pr_file=$(mktemp)
-      open_pr "$branch" "$title" "$body" "$pr_file" "$base" "$label" "${extra_labels[@]}"
+      open_pr "$branch" "$title" "$body" "$pr_file" "$base" "$label"
       new_pr=$(cat "$pr_file")
       for old_pr in $superseded; do
         comment_on_pr "$old_pr" "superseded by #$new_pr" \

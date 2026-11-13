@@ -15,7 +15,7 @@ export LC_ALL=en_US.UTF-8
 ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
 mkdir -p "${ARTIFACT_DIRS}/logs"
 
-if [ "${1:-}" = "_m1" ]; then
+if [ "${1:-}" = "_aarch64" ]; then
     bazel="arch -arm64 bazel"
 else
     bazel=bazel
@@ -44,4 +44,5 @@ $bazel build \
   --experimental_profile_include_target_label \
   --build_event_json_file build-events.json \
   --build_event_publish_all_actions \
+  --noexecution_log_sort \
   --execution_log_json_file "$ARTIFACT_DIRS/logs/build_execution${execution_log_postfix}.json.gz"

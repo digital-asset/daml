@@ -1,0 +1,12 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@rules_python//python:defs.bzl", "py_binary")
+
+py_binary(
+    name = "setup",
+    srcs = ["setup.py"],
+    data = ["//bazel/ide/hls"],
+    tags = ["manual"],
+    deps = ["//bazel/ide:setup_ide"],
+)
