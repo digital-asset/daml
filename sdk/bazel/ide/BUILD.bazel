@@ -13,7 +13,7 @@ py_library(
 py_binary(
     name = "setup",
     srcs = ["setup.py"],
-    data = ["//bazel/ide/hls"],
+    data = ["//bazel/ide/hls:first_start"],
     tags = ["manual"],
     deps = [":setup_ide"],
 )
