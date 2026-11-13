@@ -4,12 +4,14 @@
 load(
     "//bazel_tools:haskell.bzl",
     "da_haskell_library",
+    "da_haskell_test",
 )
 
 da_haskell_library(
     name = "daml-compiler",
     srcs = glob(["src/**/*.hs"]),
     hackage_deps = [
+        "aeson",
         "async",
         "base",
         "bytestring",
@@ -68,5 +70,24 @@ da_haskell_library(
         "//compiler/script-service/client",
         "//component-version/hs:component-version-class-lib",
         "//libs-haskell/da-hs-base",
+    ],
+)
+
+da_haskell_test(
+    name = "tests",
+    srcs = glob(["test/**/*.hs"]),
+    hackage_deps = [
+        "base",
+        "directory",
+        "extra",
+        "filepath",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Daml.Compiler.RecipeTest.main",
+    src_strip_prefix = "test",
+    deps = [
+        ":daml-compiler",
+        "//compiler/daml-lf-ast",
     ],
 )
