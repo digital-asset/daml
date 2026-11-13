@@ -80,6 +80,8 @@ out
 *.swp
 
 # Visual Studio Code
+.bsp/
+.metals/
 .vscode/*
 !.vscode/settings.json.default
 
