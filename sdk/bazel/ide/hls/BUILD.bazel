@@ -28,6 +28,15 @@ sh_binary(
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
+filegroup(
+    name = "first_start",
+    data = [
+        ":hls",
+        "//compiler/damlc:damlc@ghci@bios",
+    ],
+    tags = ["manual"],
+)
+
 exports_files([
     "bin/haskell-language-server-wrapper",
     "cradle",
