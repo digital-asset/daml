@@ -6,7 +6,7 @@ load("@rules_python//python:defs.bzl", "py_binary")
 py_binary(
     name = "setup",
     srcs = ["setup.py"],
-    data = ["//bazel/ide/hls"],
+    data = ["//bazel/ide/hls:first_start"],
     tags = ["manual"],
     deps = ["//bazel/ide:setup_ide"],
 )
