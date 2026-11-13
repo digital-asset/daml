@@ -42,10 +42,14 @@ py_binary(
     deps = ["@rules_python//python/runfiles"],
 )
 
+_GHC_WARNING_FLAGS = ["-Wno-missed-extra-shared-lib"]
+
 haskell_toolchain(
     name = "ghc",
+    cabalopts = ["--ghc-option=" + flag for flag in _GHC_WARNING_FLAGS],
     docdir_path = "doc",
     fully_static_link = False,
+    ghcopts = _GHC_WARNING_FLAGS,
     libdir = ["//bazel/haskell/toolchain:ghc_install"],
     libraries = TOOLCHAIN_LIBRARIES,
     static_runtime = False,
