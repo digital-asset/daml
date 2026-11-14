@@ -138,7 +138,6 @@ instance Show (ContractId a) where
     None -> "<contract-id>"
     Some t -> t
 
-
 -- | Used to convert the type index of a `ContractId`, since they are just
 -- pointers. Note that subsequent fetches and exercises might fail if the
 -- template of the contract on the ledger doesn't match.
