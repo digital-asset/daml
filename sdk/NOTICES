@@ -586,7 +586,7 @@ stream-shift 1.0.3: https://github.com/mafintosh/stream-shift : MIT License
 stretchr/objx v0.1.0: https://github.com/stretchr/objx : MIT License
 strict 0.4.0.1: http://www.cse.unsw.edu.au/~rl/code/strict.html : BSD 3-clause "New" or "Revised" License
 Strip ANSI 6.0.1: https://github.com/chalk/strip-ansi : MIT License
-supports-color v7.2.0: https://github.com/chalk/supports-color : MIT License
+supports-color v7.2.0: https://github.com/sindresorhus/supports-color : MIT License
 syb 0.7.2.2: http://www.cs.uu.nl/wiki/GenericProgramming/SYB : BSD 3-clause "New" or "Revised" License
 system-fileio 0.3.16.4: https://github.com/fpco/haskell-filesystem : MIT License
 system-filepath 0.4.14: https://github.com/fpco/haskell-filesystem : MIT License
