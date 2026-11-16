@@ -16,6 +16,7 @@ aeson-pretty 0.8.9: http://github.com/informatikr/aeson-pretty : BSD 3-clause "N
 Animal Sniffer Annotations 1.27: https://www.mojohaus.org/animal-sniffer/animal-sniffer-annotations/ : MIT License
 anorm 2.7.0 : Apache License 2.0
 anorm-tokenizer 2.7.0 : Apache License 2.0
+ansi-regex 5.0.1: https://github.com/sindresorhus/ansi-regex : MIT License
 ansi-styles v4.3.0: https://github.com/chalk/ansi-styles : MIT License
 ansi-terminal 0.11.3: https://github.com/feuerbach/ansi-terminal : BSD 3-clause "New" or "Revised" License
 ansi-wl-pprint 0.6.9: http://github.com/ekmett/ansi-wl-pprint : BSD 3-clause "New" or "Revised" License
@@ -99,7 +100,6 @@ CEL Java Protobuf adapter 0.13.0 : Apache License 2.0
 CEL Java Runtime 0.13.0 : Apache License 2.0
 cereal-conduit 0.8.0: https://github.com/snoyberg/conduit : BSD 3-clause "New" or "Revised" License
 Chalk 4.1.2: https://github.com/sindresorhus/chalk : MIT License
-chalkansi-regex 5.0.1: https://github.com/chalk/ansi-regex : MIT License
 charset 0.3.9: http://github.com/ekmett/charset : BSD 3-clause "New" or "Revised" License
 Checker Qual 4.3.1: https://checkerframework.org : MIT License
 chimney 1.4.0 : Apache License 2.0
@@ -557,6 +557,7 @@ shake 0.19.6: https://shakebuild.com : BSD 3-clause "New" or "Revised" License
 silently 1.2.5.3: https://github.com/hspec/silently : BSD 3-clause "New" or "Revised" License
 simonmar/async 2.2.4: https://github.com/simonmar/async : BSD 3-clause "New" or "Revised" License
 sindresorhus/onetime v5.1.2: https://github.com/sindresorhus/onetime : MIT License
+sindresorhus/supports-color v7.2.0: https://github.com/chalk/supports-color : MIT License
 SLF4J API Module 2.0.20: http://www.slf4j.org : MIT License
 Slick 3.5.2 : BSD 2-clause "Simplified" License
 Slick-HikariCP 3.5.2 : BSD 2-clause "Simplified" License
@@ -586,7 +587,6 @@ stream-shift 1.0.3: https://github.com/mafintosh/stream-shift : MIT License
 stretchr/objx v0.1.0: https://github.com/stretchr/objx : MIT License
 strict 0.4.0.1: http://www.cse.unsw.edu.au/~rl/code/strict.html : BSD 3-clause "New" or "Revised" License
 Strip ANSI 6.0.1: https://github.com/chalk/strip-ansi : MIT License
-supports-color v7.2.0: https://github.com/chalk/supports-color : MIT License
 syb 0.7.2.2: http://www.cs.uu.nl/wiki/GenericProgramming/SYB : BSD 3-clause "New" or "Revised" License
 system-fileio 0.3.16.4: https://github.com/fpco/haskell-filesystem : MIT License
 system-filepath 0.4.14: https://github.com/fpco/haskell-filesystem : MIT License
@@ -5929,7 +5929,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(chalkansi-regex 5.0.1)
+(ansi-regex 5.0.1)
 
 Upstream-Contact: https://github.com/sindresorhus/ansi-regex/issues
 Source: https://github.com/sindresorhus/ansi-regex
@@ -7215,7 +7215,7 @@ SOFTWARE
 ---
 
 MIT License
-(ansi-styles v4.3.0, Chalk 4.1.2, cli-cursor v3.1.0, has-flag 4.0.0, is-interactive 1.0.0, mimic-fn 2.1.0, supports-color v7.2.0)
+(ansi-styles v4.3.0, Chalk 4.1.2, cli-cursor v3.1.0, has-flag 4.0.0, is-interactive 1.0.0, mimic-fn 2.1.0, sindresorhus/supports-color v7.2.0)
 
 MIT License
 
