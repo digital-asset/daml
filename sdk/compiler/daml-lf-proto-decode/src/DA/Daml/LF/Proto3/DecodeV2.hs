@@ -488,6 +488,35 @@ decodeBuiltinFunction = \case
 
   LF2.BuiltinFunctionFAIL_WITH_STATUS -> pure BEFailWithStatus
 
+  LF2.BuiltinFunctionADD_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionMUL_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionSUB_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionDIV_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionSDIV_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionMOD_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionSMOD_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionADDMOD_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionMULMOD_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionEXP_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionSIGNEXTEND_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionSLT_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionSGT_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionAND_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionOR_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionXOR_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionNOT_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionBYTE_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionSHL_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionSHR_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionSAR_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionUINT256_TO_TEXT -> uint256NotImplemented
+  LF2.BuiltinFunctionTEXT_TO_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionINT64_TO_UINT256 -> uint256NotImplemented
+  LF2.BuiltinFunctionUINT256_TO_INT64 -> uint256NotImplemented
+
+uint256NotImplemented :: Decode a
+uint256NotImplemented = throwError $ ParseError "uint256 support not implemented"
+
 decodeLocation :: LF2.Location -> Decode SourceLoc
 decodeLocation (LF2.Location mbModRef mbRange) = do
   mbModRef' <- traverse decodeModuleId mbModRef
@@ -799,6 +828,7 @@ decodeBuiltinLit (LF2.BuiltinLit mbSum) = mayDecode "builtinLitSum" mbSum $ \cas
   LF2.BuiltinLitSumTimestamp sTime -> pure $ BETimestamp sTime
   LF2.BuiltinLitSumTextInternedStr strId ->  BEText . fst <$> lookupString strId
   LF2.BuiltinLitSumDate days -> pure $ BEDate days
+  LF2.BuiltinLitSumUint256 _ -> uint256NotImplemented
   LF2.BuiltinLitSumRoundingMode enum -> case enum of
     Proto.Enumerated (Right mode) -> pure $ case mode of
        LF2.BuiltinLit_RoundingModeUP -> BERoundingMode LitRoundingUp
@@ -860,6 +890,7 @@ decodeBuiltin = \case
   LF2.BuiltinTypeBIGNUMERIC -> pure BTBigNumeric
   LF2.BuiltinTypeANY_EXCEPTION -> pure BTAnyException
   LF2.BuiltinTypeFAILURE_CATEGORY -> pure BTFailureCategory
+  LF2.BuiltinTypeUINT256 -> uint256NotImplemented
 
 decodeTypeLevelNat :: Integer -> Decode TypeLevelNat
 decodeTypeLevelNat m =

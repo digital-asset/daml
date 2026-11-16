@@ -244,6 +244,20 @@
       }
     }
   },
+  "featureUint256" : {
+    "name" : "Uint256",
+    "cppFlag" : "DAML_UINT256",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+            
+          }
+        }
+      }
+    }
+  },
   "featureStableCallStack" : {
     "name" : "Stable packages for CallStack types",
     "cppFlag" : "DAML_STABLE_CALLSTACK",
