@@ -1,0 +1,39 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SUPPORTS-LF-FEATURE DAML_TEXT_TO_CONTRACT_ID
+
+module ParseContractId where
+
+import Daml.Script
+import DA.Assert ((===))
+import DA.Text (parseContractId)
+
+template Asset with
+    owner : Party
+  where
+    signatory owner
+
+template Archiver with
+    owner : Party
+  where
+    signatory owner
+
+    nonconsuming choice ArchiveByText : ()
+      with
+        cidText : Text
+      controller owner
+      do
+        case parseContractId cidText of
+          None -> abort ("cannot parse contract id: " <> cidText)
+          Some cid -> archive (cid : ContractId Asset)
+
+archiveByText = script do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (Asset alice)
+  helper <- submit alice $ createCmd (Archiver alice)
+  before <- queryContractId alice cid
+  before === Some (Asset alice)
+  submit alice $ exerciseCmd helper (ArchiveByText (show cid))
+  after <- queryContractId alice cid
+  after === None
