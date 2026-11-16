@@ -874,6 +874,8 @@ final class Conversions(
           ()
         }
         builder.setMap(mapBuilder)
+      case V.ValueUint256(_) =>
+        throw new UnsupportedOperationException("ValueUint256 is not supported")
     }
     builder.build
   }
