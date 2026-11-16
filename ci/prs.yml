@@ -441,6 +441,8 @@ jobs:
     - bash: |
         set -euo pipefail
         ./ci/publish-artifactory.sh "$(Build.StagingDirectory)" $(release_tag) split
+      env:
+        DRY_RUN: 'true'
       displayName: 'Publish Split Release Artifacts to Artifactory (print only)'
     - bash: |
         set -euo pipefail
@@ -450,6 +452,8 @@ jobs:
           DPM_REGISTRY="europe-docker.pkg.dev/da-images/public-unstable"
         fi
         ./ci/publish-oci.sh "$(Build.StagingDirectory)" $(release_tag) "$DPM_REGISTRY"
+      env:
+        DRY_RUN: 'true'
       displayName: 'Publish Split Release Artifacts to OCI Registry (print only)'
     - bash: |
         set -euo pipefail
