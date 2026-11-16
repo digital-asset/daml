@@ -23,6 +23,13 @@ fi
 STAGING_DIR=$(cd "$1" && pwd)
 RELEASE_TAG=$2
 DPM_REGISTRY=$3
+dry_run="${DRY_RUN:-false}"
+sdk_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../sdk" && pwd)"
+
+if [[ "${dry_run}" != true && "${RELEASE_TAG}" == 0.0.0 ]]; then
+  err "Refusing to publish version 0.0.0, it marks a non-release build. Set DRY_RUN=true to only print the commands."
+  exit 1
+fi
 
 function extract_major_minor() {
   version="$1"
@@ -82,23 +89,28 @@ function publish_artifact {
       ${unarchive} "${artifact_path}" --unlink-first -C "dist/${arch}/${artifact_name}"
       if [ -f "dist/${arch}/${artifact_name}/is-agnostic" ]; then
           rm dist/${arch}/${artifact_name}/is-agnostic
-          platform_args+=( "--platform generic=${STAGING_DIR}/dist/${arch}/${artifact_name}" )
+          platform_args+=( --platform "generic=${STAGING_DIR}/dist/${arch}/${artifact_name}" )
           platform_dirs+=( "generic (from ${plat}),dist/${arch}/${artifact_name}" )
           break
       fi
-      platform_args+=( "--platform ${arch}=${STAGING_DIR}/dist/${arch}/${artifact_name}" )
+      platform_args+=( --platform "${arch}=${STAGING_DIR}/dist/${arch}/${artifact_name}" )
       platform_dirs+=( "${arch} (from ${plat}),dist/${arch}/${artifact_name}" )
     done
     if [[ "${RELEASE_TAG}" != *"-adhoc"* ]]; then
-      extra_tags_args+=( "--extra-tags $(extract_major_minor ${RELEASE_TAG})" )
+      extra_tags_args+=( --extra-tags "$(extract_major_minor "${RELEASE_TAG}")" )
       if [[ "${tag_main}" == true ]]; then
-        extra_tags_args+=( "--extra-tags main" )
+        extra_tags_args+=( --extra-tags main )
       fi
     fi
-    info "Would upload ${artifact_name} to oci registry:\n"
+    reference="oci://${DPM_REGISTRY}/components/${artifact_name}:${RELEASE_TAG}"
+    if [[ "${dry_run}" == true ]]; then
+      info "Would upload ${artifact_name} to oci registry:\n"
+    else
+      info "Uploading ${artifact_name} to oci registry:\n"
+    fi
 
-    printf 'dpm publish component oci://%s/components/%s:%s' "${DPM_REGISTRY}" "${artifact_name}" "${RELEASE_TAG}"
-    printf ' \\\n    %s' "${extra_tags_args[@]}" "${platform_args[@]}"
+    printf 'dpm publish component %s' "${reference}"
+    printf ' \\\n    %s %s' "${extra_tags_args[@]}" "${platform_args[@]}"
     printf '\n'
     for entry in "${platform_dirs[@]}"; do
       label="${entry%%,*}"
@@ -106,6 +118,15 @@ function publish_artifact {
       printf '  %-38s %6s  %s\n' "${label}" "$(du -sh "${dir}" | cut -f1)" "$(ls -A "${dir}" | tr '\n' ' ')"
     done
     printf '\n'
+
+    if [[ "${dry_run}" != true ]]; then
+      cd "${sdk_dir}"
+      bazelisk run @dpm_binary//:dpm -- \
+        publish component \
+        "${reference}" \
+        "${extra_tags_args[@]}" \
+        "${platform_args[@]}"
+    fi
   )
 }
 
