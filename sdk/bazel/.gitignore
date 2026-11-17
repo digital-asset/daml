@@ -1,0 +1,3 @@
+# Temporary ad-hoc bazel doc, that gets updated as I work on known issues,
+# this travels between branches to make it easier to manage
+documentation/
