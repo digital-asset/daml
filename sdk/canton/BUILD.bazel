@@ -24,7 +24,7 @@ scala_binary(
 
 # For DPM!
 package_oci_component(
-    name = "canton-community-oci",
+    name = "canton-open-source-oci",
     component_manifest = ":component.yaml",
     platform_agnostic = True,
     resources = [":community_app_deploy.jar"],
