@@ -79,10 +79,9 @@ object CantonRunner {
     val authConfig = config.authSecret.fold("")(secret => s"""auth-services = [{
         |          type = unsafe-jwt-hmac-256
         |          secret = "${toJson(secret)}"
+        |          target-audience = ${toJson(CantonRunner.testAudience)}
         |        }]
         |""".stripMargin)
-    val scopeOnlyJwtFeature =
-      config.authSecret.fold("")(_ => "features.deprecated.enable-scope-only-jwt = true")
     val tls = config.tlsConfig.fold("")(config => s"""tls {
         |          cert-chain-file = ${toJson(config.serverCrt)}
         |          private-key-file = ${toJson(config.serverPem)}
@@ -155,7 +154,6 @@ object CantonRunner {
          |    ports-file = ${toJson(files.portsFile)}
          |    ${clockType.fold("")(x => "clock.type = " + x)}
          |  }
-         |  ${scopeOnlyJwtFeature}
          |
          |  sequencers {
          |    sequencer1 {
@@ -326,7 +324,6 @@ object CantonRunner {
   def getToken(
       userId: String,
       authSecret: Option[String] = None,
-      targetScope: Option[String] = None,
       exp: Option[Instant] = None,
   ): Option[String] = authSecret.map { secret =>
     val payload = StandardJWTPayload(
@@ -334,9 +331,9 @@ object CantonRunner {
       userId = userId,
       participantId = None,
       exp = exp,
-      format = StandardJWTTokenFormat.Scope,
-      audiences = List.empty,
-      scope = Some(targetScope.getOrElse("daml_ledger_api")),
+      format = StandardJWTTokenFormat.Audience,
+      audiences = List(testAudience),
+      scope = None,
     )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
     val jwt =
@@ -348,4 +345,6 @@ object CantonRunner {
   }
 
   val adminUserId = Ref.UserId.assertFromString("participant_admin")
+
+  val testAudience = "https://daml.com/jwt/aud/participant/daml-integration-test"
 }

@@ -62,7 +62,6 @@ trait CantonFixtureWithResource[A]
   protected lazy val userId: Option[Ref.UserId] =
     Some(Ref.UserId.assertFromString(getClass.getName))
   protected lazy val cantonJar: Path = CantonRunner.cantonPath
-  protected lazy val targetScope: Option[String] = Option.empty
 
   // This flag setup some behavior to ease debugging tests.
   //  If `CantonFixtureDebugKeepTmpFiles` or `CantonFixtureDebugRemoveTmpFiles`
@@ -134,7 +133,6 @@ trait CantonFixtureWithResource[A]
     tlsEnable = tlsEnable,
     debug = cantonFixtureDebugModeIsDebug,
     bootstrapScript = bootstrapScript,
-    targetScope = targetScope,
     disableUpgradeValidation = disableUpgradeValidation,
     enableRemoteJavaDebugging = remoteJavaDebugging,
     extensionServices = extensionServices,
