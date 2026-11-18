@@ -81,6 +81,8 @@ object CantonRunner {
         |          secret = "${toJson(secret)}"
         |        }]
         |""".stripMargin)
+    val scopeOnlyJwtFeature =
+      config.authSecret.fold("")(_ => "features.deprecated.enable-scope-only-jwt = true")
     val tls = config.tlsConfig.fold("")(config => s"""tls {
         |          cert-chain-file = ${toJson(config.serverCrt)}
         |          private-key-file = ${toJson(config.serverPem)}
@@ -153,6 +155,7 @@ object CantonRunner {
          |    ports-file = ${toJson(files.portsFile)}
          |    ${clockType.fold("")(x => "clock.type = " + x)}
          |  }
+         |  ${scopeOnlyJwtFeature}
          |
          |  sequencers {
          |    sequencer1 {
