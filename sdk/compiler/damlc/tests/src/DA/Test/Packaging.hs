@@ -17,6 +17,7 @@ import DA.Test.Util
 import Data.Conduit.Tar.Extra (dropDirectory1)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL.Char8
+import Data.Foldable (asum)
 import qualified Data.Graph as Graph (path)
 import Data.List.Extra
 import Data.Maybe
@@ -1148,6 +1149,278 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "  dep-2.0.0: Dep4"
             ]
           buildPackageError (dir </> "main") "" "Could not find module"
+    , testCaseSteps "the DAR carries a daml.yaml describing the build" $ \step -> withTempDir $ \projDir -> do
+          step "Building a package"
+          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> componentVersionString
+            , "name: embedded"
+            , "version: 1.0.0"
+            , "source: daml"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "build-options:"
+            , "  - --target=2.1"
+            ]
+          createDirectoryIfMissing True (projDir </> "daml")
+          writeFileUTF8 (projDir </> "daml" </> "Main.daml") $ unlines
+            [ "module Main where"
+            , "value : Int"
+            , "value = 1"
+            ]
+          withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", "embedded.dar"]
+
+          step "Checking the embedded daml.yaml"
+          let dar = projDir </> "embedded.dar"
+          assertFileExists dar
+          archive <- Zip.toArchive <$> BSL.readFile dar
+          Just entry <- pure $ Zip.findEntryByPath "daml.yaml" archive
+          let embedded = BSL.Char8.unpack (Zip.fromEntry entry)
+          assertInfixOf ("damlc:" <> componentVersionString) embedded
+          assertInfixOf "name: embedded" embedded
+          assertInfixOf "version: 1.0.0" embedded
+          assertInfixOf "source: daml" embedded
+          assertInfixOf "--target=2.1" embedded
+          assertInfixOf "environment-variable-interpolation: false" embedded
+
+    , testGroup "rebuilding a DAR from the daml.yaml it carries"
+      [ testCase "a package with no dependencies" $ withTempDir $ \dir -> do
+            let proj = dir </> "plain"
+            createDirectoryIfMissing True (proj </> "daml")
+            writeFileUTF8 (proj </> "daml.yaml") $ unlines
+                [ "sdk-version: " <> componentVersionString
+                , "name: plain"
+                , "version: 1.0.0"
+                , "source: daml"
+                , "dependencies: [daml-prim, daml-stdlib]"
+                ]
+            writeFileUTF8 (proj </> "daml" </> "Main.daml") $ unlines
+                [ "module Main where"
+                , "template Holder"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                ]
+            expectSameId =<< roundTripThroughDar damlc proj (dir </> "rebuild")
+
+      , testCase "a dependency the package pointed at" $ withTempDir $ \dir -> do
+            dep <- buildDependencyDar damlc dir "dep"
+            let proj = dir </> "pointed"
+            createDirectoryIfMissing True (proj </> "daml")
+            writeFileUTF8 (proj </> "daml.yaml") $ unlines
+                [ "sdk-version: " <> componentVersionString
+                , "name: pointed"
+                , "version: 1.0.0"
+                , "source: daml"
+                , "dependencies: [daml-prim, daml-stdlib]"
+                , "data-dependencies: [" <> show dep <> "]"
+                ]
+            writeFileUTF8 (proj </> "daml" </> "Main.daml") $ unlines
+                [ "module Main where"
+                , "import Dep"
+                , "template Holder"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    nonconsuming choice Make : ContractId Asset"
+                , "      controller owner"
+                , "      do create Asset with owner = owner"
+                ]
+            expectSameId =<< roundTripThroughDar damlc proj (dir </> "rebuild")
+
+      , -- Fails today: due to compiler non-determinism
+        testCase "a dependency the package named" $ withTempDir $ \dir -> do
+            dep <- buildDependencyDar damlc dir "dep"
+            let proj = dir </> "named"
+            createDirectoryIfMissing True (proj </> "daml")
+            writeFileUTF8 (proj </> "daml.yaml") $ unlines
+                [ "sdk-version: " <> componentVersionString
+                , "name: named"
+                , "version: 1.0.0"
+                , "source: daml"
+                , "dependencies: [daml-prim, daml-stdlib, " <> show dep <> "]"
+                ]
+            writeFileUTF8 (proj </> "daml" </> "Main.daml") $ unlines
+                [ "module Main where"
+                , "import Dep"
+                , "template Holder"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    nonconsuming choice Make : ContractId Asset"
+                , "      controller owner"
+                , "      do create Asset with owner = owner"
+                ]
+            expectSameId =<< roundTripThroughDar damlc proj (dir </> "rebuild")
+
+      , testCase "a package whose modules sit in subdirectories" $ withTempDir $ \dir -> do
+            let proj = dir </> "nested"
+            createDirectoryIfMissing True (proj </> "src" </> "A" </> "B")
+            writeFileUTF8 (proj </> "daml.yaml") $ unlines
+                [ "sdk-version: " <> componentVersionString
+                , "name: nested"
+                , "version: 1.0.0"
+                , "source: src"
+                , "dependencies: [daml-prim, daml-stdlib]"
+                ]
+            writeFileUTF8 (proj </> "src" </> "A" </> "B" </> "C.daml") $ unlines
+                [ "module A.B.C where"
+                , "value : Int"
+                , "value = 1"
+                ]
+            writeFileUTF8 (proj </> "src" </> "Main.daml") $ unlines
+                [ "module Main where"
+                , "import A.B.C"
+                , "other : Int"
+                , "other = value"
+                ]
+            expectSameId =<< roundTripThroughDar damlc proj (dir </> "rebuild")
+
+      , testCase "a package with module prefixes" $ withTempDir $ \dir -> do
+            dep <- buildDependencyDar damlc dir "dep"
+            let proj = dir </> "prefixed"
+            createDirectoryIfMissing True (proj </> "daml")
+            writeFileUTF8 (proj </> "daml.yaml") $ unlines
+                [ "sdk-version: " <> componentVersionString
+                , "name: prefixed"
+                , "version: 1.0.0"
+                , "source: daml"
+                , "dependencies: [daml-prim, daml-stdlib]"
+                , "data-dependencies: [" <> show dep <> "]"
+                , "module-prefixes:"
+                , "  dep-1.0.0: V1"
+                ]
+            writeFileUTF8 (proj </> "daml" </> "Main.daml") $ unlines
+                [ "module Main where"
+                , "import V1.Dep"
+                , "template Holder"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    nonconsuming choice Make : ContractId Asset"
+                , "      controller owner"
+                , "      do create Asset with owner = owner"
+                ]
+            expectSameId =<< roundTripThroughDar damlc proj (dir </> "rebuild")
+
+      , testCaseSteps "source changed after the fact does not reproduce the package" $ \_step -> withTempDir $ \dir -> do
+            let proj = dir </> "tampered"
+            createDirectoryIfMissing True (proj </> "daml")
+            writeFileUTF8 (proj </> "daml.yaml") $ unlines
+                [ "sdk-version: " <> componentVersionString
+                , "name: tampered"
+                , "version: 1.0.0"
+                , "source: daml"
+                , "dependencies: [daml-prim, daml-stdlib]"
+                ]
+            writeFileUTF8 (proj </> "daml" </> "Main.daml") $ unlines
+                [ "module Main where"
+                , "value : Int"
+                , "value = 1"
+                ]
+            let tamper rebuildDir = writeFileUTF8 (rebuildDir </> "daml" </> "Main.daml") $ unlines
+                    [ "module Main where"
+                    , "value : Int"
+                    , "value = 2"
+                    ]
+            (built, rebuilt) <-
+                roundTripThroughDarWith tamper damlc proj (dir </> "rebuild")
+            assertBool "tampered source reproduced the original package id" (built /= rebuilt)
+
+      , testCase "a package whose daml.yaml used an environment variable" $ withTempDir $ \dir -> do
+            let proj = dir </> "interpolated"
+            createDirectoryIfMissing True (proj </> "daml")
+            writeFileUTF8 (proj </> "daml.yaml") $ unlines
+                [ "sdk-version: " <> componentVersionString
+                , "name: interpolated"
+                , "version: 1.0.0"
+                , "source: ${PACKAGING_TEST_SOURCE}"
+                , "dependencies: [daml-prim, daml-stdlib]"
+                ]
+            writeFileUTF8 (proj </> "daml" </> "Main.daml") $ unlines
+                [ "module Main where"
+                , "template Holder"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                ]
+            built <- bracket
+                (setEnv "PACKAGING_TEST_SOURCE" "daml" True)
+                (\_ -> unsetEnv "PACKAGING_TEST_SOURCE")
+                (\_ -> withCurrentDirectory proj $ do
+                    callProcessSilent damlc ["build", "-o", "built.dar"]
+                    mainPackageIdOf (proj </> "built.dar"))
+            -- Rebuilt with the variable gone from the environment.
+            rebuilt <- rebuildFromDar damlc (proj </> "built.dar") (dir </> "rebuild")
+            expectSameId (built, rebuilt)
+
+      , testCase "a package that set its own output path" $ withTempDir $ \dir -> do
+            let proj = dir </> "output"
+            createDirectoryIfMissing True (proj </> "daml")
+            writeFileUTF8 (proj </> "daml.yaml") $ unlines
+                [ "sdk-version: " <> componentVersionString
+                , "name: output"
+                , "version: 1.0.0"
+                , "source: daml"
+                , "dependencies: [daml-prim, daml-stdlib]"
+                , "build-options:"
+                , "  - --output=" <> (dir </> "elsewhere" </> "custom.dar")
+                ]
+            writeFileUTF8 (proj </> "daml" </> "Main.daml") $ unlines
+                [ "module Main where"
+                , "template Holder"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                ]
+            expectSameId =<< roundTripThroughDar damlc proj (dir </> "rebuild")
+
+      , -- Fails today: damlc reads upgrades: as a file path, not a package id
+        testCase "a package that upgrades another" $ withTempDir $ \dir -> do
+            let v1 = dir </> "v1"
+            createDirectoryIfMissing True (v1 </> "daml")
+            writeFileUTF8 (v1 </> "daml.yaml") $ unlines
+                [ "sdk-version: " <> componentVersionString
+                , "name: upgraded"
+                , "version: 1.0.0"
+                , "source: daml"
+                , "dependencies: [daml-prim, daml-stdlib]"
+                ]
+            writeFileUTF8 (v1 </> "daml" </> "Main.daml") $ unlines
+                [ "module Main where"
+                , "template Holder"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                ]
+            withCurrentDirectory v1 $ callProcessSilent damlc ["build", "-o", "v1.dar"]
+
+            let v2 = dir </> "v2"
+            createDirectoryIfMissing True (v2 </> "daml")
+            writeFileUTF8 (v2 </> "daml.yaml") $ unlines
+                [ "sdk-version: " <> componentVersionString
+                , "name: upgraded"
+                , "version: 2.0.0"
+                , "source: daml"
+                , "dependencies: [daml-prim, daml-stdlib]"
+                , "upgrades: " <> (v1 </> "v1.dar")
+                ]
+            writeFileUTF8 (v2 </> "daml" </> "Main.daml") $ unlines
+                [ "module Main where"
+                , "template Holder"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                ]
+            expectSameId =<< roundTripThroughDar damlc v2 (dir </> "rebuild")
+      ]
+
     , testCaseSteps "relative output filepath" $ \step -> withTempDir $ \dir -> do
           step "Create package"
           writeFileUTF8 (dir </> "daml.yaml") $ unlines
@@ -1220,6 +1493,118 @@ lfVersionTests damlc = testGroup "LF version dependencies"
                   version `LF.canDependOn` LF.packageLfVersion pkg
     | version <- LF.compilerOutputLfVersions
     ]
+
+-- | Build a package, then rebuild it from the daml.yaml its own DAR carries,
+-- and hand back the main package id of each. Tests supply where to
+-- write the output.
+roundTripThroughDar :: FilePath -> FilePath -> FilePath -> IO (LF.PackageId, LF.PackageId)
+roundTripThroughDar = roundTripThroughDarWith (const (pure ()))
+
+roundTripThroughDarWith
+    :: (FilePath -> IO ())
+    -> FilePath -> FilePath -> FilePath -> IO (LF.PackageId, LF.PackageId)
+roundTripThroughDarWith beforeRebuild damlc projDir rebuildDir = do
+    withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", "built.dar"]
+    built <- mainPackageIdOf (projDir </> "built.dar")
+
+    createDirectoryIfMissing True rebuildDir
+    archive <- Zip.toArchive <$> BSL.readFile (projDir </> "built.dar")
+    Zip.extractFilesFromArchive [Zip.OptDestination rebuildDir] archive
+
+    source <- sourceDirectoryOf (rebuildDir </> "daml.yaml")
+    shipped <- shippedDamlFiles rebuildDir
+    forM_ shipped $ \(packageDir, relative) -> do
+        let destination = rebuildDir </> source </> relative
+        createDirectoryIfMissing True (takeDirectory destination)
+        renamePath (rebuildDir </> packageDir </> relative) destination
+
+    beforeRebuild rebuildDir
+    rebuildOrFail damlc rebuildDir
+    rebuilt <- mainPackageIdOf (rebuildDir </> "rebuilt.dar")
+    pure (built, rebuilt)
+
+-- | Rebuild the unpacked tree
+rebuildOrFail :: FilePath -> FilePath -> IO ()
+rebuildOrFail damlc rebuildDir = do
+    (exit, out, err) <- readCreateProcessWithExitCode
+        (proc damlc ["build", "-o", "rebuilt.dar"]) { cwd = Just rebuildDir } ""
+    unless (exit == ExitSuccess) $
+        assertFailure $ "the unpacked DAR did not rebuild:\n"
+            <> unlines (takeEnd 12 (lines (out <> err)))
+
+-- | A one-module package to depend on, built and handed back as a DAR path.
+buildDependencyDar :: ComponentVersioned => FilePath -> FilePath -> String -> IO FilePath
+buildDependencyDar damlc dir name = do
+    let proj = dir </> name
+    createDirectoryIfMissing True (proj </> "daml")
+    writeFileUTF8 (proj </> "daml.yaml") $ unlines
+        [ "sdk-version: " <> componentVersionString
+        , "name: " <> name
+        , "version: 1.0.0"
+        , "source: daml"
+        , "dependencies: [daml-prim, daml-stdlib]"
+        ]
+    writeFileUTF8 (proj </> "daml" </> "Dep.daml") $ unlines
+        [ "module Dep where"
+        , "template Asset"
+        , "  with"
+        , "    owner : Party"
+        , "  where"
+        , "    signatory owner"
+        ]
+    withCurrentDirectory proj $ callProcessSilent damlc ["build", "-o", name <> ".dar"]
+    pure (proj </> (name <> ".dar"))
+
+-- | The second half of 'roundTripThroughDar', for cases that have to build
+-- the DAR themselves.
+rebuildFromDar :: FilePath -> FilePath -> FilePath -> IO LF.PackageId
+rebuildFromDar damlc dar rebuildDir = do
+    createDirectoryIfMissing True rebuildDir
+    archive <- Zip.toArchive <$> BSL.readFile dar
+    Zip.extractFilesFromArchive [Zip.OptDestination rebuildDir] archive
+    source <- sourceDirectoryOf (rebuildDir </> "daml.yaml")
+    shipped <- shippedDamlFiles rebuildDir
+    forM_ shipped $ \(packageDir, relative) -> do
+        let destination = rebuildDir </> source </> relative
+        createDirectoryIfMissing True (takeDirectory destination)
+        renamePath (rebuildDir </> packageDir </> relative) destination
+    rebuildOrFail damlc rebuildDir
+    mainPackageIdOf (rebuildDir </> "rebuilt.dar")
+
+mainPackageIdOf :: FilePath -> IO LF.PackageId
+mainPackageIdOf dar = do
+    Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile dar
+    (pkgId, _pkg) <- either (fail . show) pure $
+        LFArchive.decodeArchive LFArchive.DecodeAsMain (BSL.toStrict mainDalf)
+    pure pkgId
+
+sourceDirectoryOf :: FilePath -> IO FilePath
+sourceDirectoryOf damlYaml = do
+    contents <- readFileUTF8 damlYaml
+    case [unquote (dropWhile (== ' ') rest) | line <- lines contents, Just rest <- [stripPrefix "source:" line]] of
+        source : _ -> pure source
+        [] -> fail $ damlYaml <> " names no source directory"
+  where
+    unquote value = fromMaybe value $ asum
+        [ stripPrefix "\"" value >>= stripSuffix "\""
+        , stripPrefix "'" value >>= stripSuffix "'"
+        ]
+
+-- | The .daml files a DAR ships, as the package directory they sit in and
+-- their path relative to it.
+shippedDamlFiles :: FilePath -> IO [(FilePath, FilePath)]
+shippedDamlFiles unpacked = do
+    entries <- listDirectory unpacked
+    packageDirs <- filterM (doesDirectoryExist . (unpacked </>)) entries
+    fmap concat $ forM packageDirs $ \packageDir -> do
+        files <- listFilesRecursive (unpacked </> packageDir)
+        pure [ (packageDir, makeRelative (unpacked </> packageDir) file)
+             | file <- files, takeExtension file == ".daml" ]
+
+-- | The claim every case in the round-trip group makes.
+expectSameId :: (LF.PackageId, LF.PackageId) -> IO ()
+expectSameId (built, rebuilt) =
+    assertEqual "the DAR did not rebuild to the same package" built rebuilt
 
 darPackageIds :: FilePath -> IO [LF.PackageId]
 darPackageIds fp = do
