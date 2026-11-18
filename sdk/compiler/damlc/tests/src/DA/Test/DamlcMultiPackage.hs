@@ -22,7 +22,6 @@ import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, fromJust)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import qualified Data.Set as Set
 import Data.Time.Clock (UTCTime)
 import Data.Yaml (decodeThrow, encodeFile)
 import ComponentVersion (ComponentVersioned, componentVersionString, withComponentVersions)
@@ -498,7 +497,11 @@ tests =
               , Dir "daml" [DamlSource "MyPackage" []]
               ]
             ]
-            (pure . removeResolvedDepsFromResolution)
+            -- Resolution for this package will fail as dpm cannot resolve the oci
+            -- We skip around this by coping the default resolution over, which will both
+            -- succeed to resolve, and not include resolved deps, achieving our
+            -- pseudo old dpm without remote dar support behaviour.
+            (pure . copyDefaultSdkToEachResolution)
             "Found unresolved DPM remote dar: \"oci://my-dependency:0.0.1\""
         ]
     , testGroup "Miscellaneous"
@@ -643,16 +646,9 @@ tests =
             packagePathKey = lower $ toPosixFilePath packagePath'
         pure $ resolution {packages = Map.adjust adjustPackageResolution packagePathKey $ packages resolution}
 
-    -- Removes keys related to remote deps from a resolution to test damlc behaviour pre-remote-deps
-    removeResolvedDepsFromResolution :: ResolutionData -> ResolutionData
-    removeResolvedDepsFromResolution resolution =
-      let -- Keys in the package resolution imports related to resolved deps
-          resolvedDepsImportsKeys = Set.fromList ["resolved-dependencies", "resolved-data-dependencies"]
-          adjustPackageResolution :: PackageResolutionData -> PackageResolutionData
-          adjustPackageResolution (ValidPackageResolutionData packageResolution) =
-            ValidPackageResolutionData $ packageResolution {imports = Map.withoutKeys (imports packageResolution) resolvedDepsImportsKeys}
-          adjustPackageResolution res = res
-       in resolution {packages = fmap adjustPackageResolution $ packages resolution}
+    copyDefaultSdkToEachResolution :: ResolutionData -> ResolutionData
+    copyDefaultSdkToEachResolution resolution =
+      resolution {packages = fmap (const $ snd $ defaultSdk resolution) $ packages resolution}
 
     -- Builds a project with added resolved-dependencies and resolved-data-dependencies
     -- asserts success
