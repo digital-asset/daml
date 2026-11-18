@@ -1421,6 +1421,33 @@ tests Tools{damlc} = testGroup "Packaging" $
             expectSameId =<< roundTripThroughDar damlc v2 (dir </> "rebuild")
       ]
 
+    , testCase "a module included from outside source warns" $ withTempDir $ \projDir -> do
+          createDirectoryIfMissing True (projDir </> "daml")
+          createDirectoryIfMissing True (projDir </> "extra")
+          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> componentVersionString
+            , "name: included"
+            , "version: 1.0.0"
+            , "source: daml"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "build-options: [--include=extra]"
+            ]
+          writeFileUTF8 (projDir </> "extra" </> "Extra.daml") $ unlines
+            [ "module Extra where"
+            , "extra : Int"
+            , "extra = 1"
+            ]
+          writeFileUTF8 (projDir </> "daml" </> "Main.daml") $ unlines
+            [ "module Main where"
+            , "import Extra"
+            , "value : Int"
+            , "value = extra"
+            ]
+          (exitCode, _, err) <- readProcessWithExitCode damlc ["build", "--package-root", projDir] ""
+          exitCode @?= ExitSuccess
+          assertInfixOf "This DAR will not carry sources" err
+          assertInfixOf "Extra.daml" err
+
     , testCaseSteps "relative output filepath" $ \step -> withTempDir $ \dir -> do
           step "Create package"
           writeFileUTF8 (dir </> "daml.yaml") $ unlines
