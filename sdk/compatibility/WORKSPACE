@@ -388,37 +388,6 @@ load("@rules_jvm_external//:defs.bzl", "maven_install")
 grpc_version = "1.67.1"
 
 load("@scala_version//:index.bzl", "scala_artifacts", "scala_major_version", "scala_version")
-
-# We base our Maven artifacts on the latest stable release
-# for now. In principle, we could setup one Maven workspace
-# per SDK version but that is a bit painful to setup and
-# seems to bring little benefit.
-maven_install(
-    name = "maven",
-    artifacts = [
-        "com.daml:daml-lf-transaction_2.13:{}".format(internal_sdk_versions[latest_stable_version]),
-        "io.grpc:grpc-api:{}".format(grpc_version),
-        "io.grpc:grpc-core:{}".format(grpc_version),
-        "io.grpc:grpc-netty:{}".format(grpc_version),
-        "io.grpc:grpc-protobuf:{}".format(grpc_version),
-        "io.grpc:grpc-services:{}".format(grpc_version),
-        "io.grpc:grpc-stub:{}".format(grpc_version),
-        "com.github.scopt:scopt_{}:3.7.1".format(scala_major_version),
-        "org.wartremover:wartremover_{}:3.5.8".format(scala_version),
-        "io.spray:spray-json_{}:1.3.5".format(scala_major_version),
-    ],
-    fail_if_repin_required = True,
-    maven_install_json = "@compatibility//:maven_install.json",
-    repositories = [
-        "https://repo1.maven.org/maven2",
-    ],
-    version_conflict_policy = "pinned",
-)
-
-load("@maven//:defs.bzl", "pinned_maven_install")
-
-pinned_maven_install()
-
 load("@io_bazel_rules_scala//:scala_config.bzl", "scala_config")
 
 scala_config(scala_version)
