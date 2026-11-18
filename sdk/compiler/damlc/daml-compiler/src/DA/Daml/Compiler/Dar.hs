@@ -29,6 +29,7 @@ import DA.Daml.LF.TypeChecker.Upgrade as Upgrade
 import DA.Daml.LF.TypeChecker.WarnInvalidDependencies as WarnInvalidDependencies
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
+import DA.Daml.Compiler.EmbeddedDamlYaml
 import DA.Daml.Package.Config
 import qualified DA.Service.Logger as Logger
 import qualified Data.ByteString as BS
@@ -126,7 +127,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
             -- in the dalfInput case we interpret pSrc as the filepath pointing to the dalf.
             -- Note that the package id is obviously wrong but this feature is not something we expose to users.
             pure $ Just
-              ( createArchive pName pVersion versionInfo (LF.PackageId "") bytes [] (toNormalizedFilePath' ".") [] [] []
+              ( createArchive pName pVersion versionInfo (LF.PackageId "") bytes [] Nothing (toNormalizedFilePath' ".") [] [] []
               , Nothing
               )
         -- We need runActionSync here to ensure that diagnostics are printed to the terminal.
@@ -186,12 +187,37 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
                  let confFile = mkConfFile pName pVersion (Map.keys unstableDeps) pExposedModules pkgModuleNames pkgId
                  let dataFiles = [confFile]
                  srcRoot <- getSrcRoot pSrc
+                 let packageRoot = maybe "." unwrapPackagePath mbProjectPath
+                 let pointedAt = dataDependencies (Map.keys unstableDeps)
+                 let mbEmbeddedDamlYaml = do
+                         source <- relativeSource packageRoot pSrc
+                         pure EmbeddedDamlYaml
+                             { edyName = pName
+                             , edyVersion = pVersion
+                             , edyDamlcVersion = T.pack (versionToString versionInfo)
+                             , edySource = source
+                             , edyDataDependencies = pointedAt
+                             , edyUpgrades = upwnavPkgId . fst <$> mbUpgradedPackage
+                             , edyModulePrefixes = pModulePrefixes
+                             , edyBuildOptions =
+                                 map T.pack pBuildOptions
+                                 <> packageExposureFlags rootDepsUnitIds pointedAt
+                             }
+                 when (isNothing mbEmbeddedDamlYaml) $
+                     liftIO $ IdeLogger.logWarning (ideLogger service) $ T.concat
+                         [ "This DAR will carry no daml.yaml, so it cannot be rebuilt from its own contents: source "
+                         , T.pack (show pSrc)
+                         , " resolves outside the package root "
+                         , T.pack (show packageRoot)
+                         , "."
+                         ]
                  pure
                    ( createArchive
                        pName pVersion versionInfo
                        pkgId
                        dalf
                        dalfDependencies
+                       mbEmbeddedDamlYaml
                        srcRoot
                        files
                        dataFiles
@@ -364,12 +390,13 @@ createArchive
     -> LF.PackageId
     -> BSL.ByteString -- ^ DALF
     -> [(T.Text, BS.ByteString, LF.PackageId)] -- ^ DALF dependencies
+    -> Maybe EmbeddedDamlYaml -- ^ The embedded daml.yaml, completed below from the entries written
     -> NormalizedFilePath -- ^ Source root directory
     -> [NormalizedFilePath] -- ^ Module dependencies
     -> [(String, BS.ByteString)] -- ^ Data files
     -> [NormalizedFilePath] -- ^ Interface files
     -> Zip.ZipArchive ()
-createArchive pName pVersion versionInfo pkgId dalf dalfDependencies srcRoot fileDependencies dataFiles ifaces
+createArchive pName pVersion versionInfo pkgId dalf dalfDependencies mbEmbeddedDamlYaml srcRoot fileDependencies dataFiles ifaces
  = do
     -- Reads all module source files, and pairs paths (with changed prefix)
     -- with contents as BS. The path must be within the module root path, and
@@ -392,12 +419,20 @@ createArchive pName pVersion versionInfo pkgId dalf dalfDependencies srcRoot fil
             [ (pkgName </> "data" </> n, BSC.fromStrict bs)
             | (n, bs) <- dataFiles
             ]
+    let dalfPaths = Map.fromList
+            [ (stringToUnitId (T.unpack depName), path)
+            | ((path, _), (depName, _, _)) <- zip dependencies dalfDependencies
+            ]
+    let embeddedFiles =
+            [ (embeddedDamlYamlEntryPath, renderEmbeddedDamlYaml dalfPaths embedded)
+            | Just embedded <- [mbEmbeddedDamlYaml]
+            ]
     -- construct a zip file from all required files
     let allFiles =
             ( "META-INF/MANIFEST.MF"
             , manifestHeader dalfName (dalfName : map fst dependencies)) :
             (dalfName, dalf) :
-            dependencies ++ dataFiles'
+            dependencies ++ dataFiles' ++ embeddedFiles
     forM_ allFiles $ \(file, content) -> do
         entry <- Zip.mkEntrySelector file
         sinkEntryDeterministic Zip.Deflate (sourceLazy content) entry
