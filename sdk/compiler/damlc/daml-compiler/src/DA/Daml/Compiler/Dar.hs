@@ -211,6 +211,15 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
                          , T.pack (show packageRoot)
                          , "."
                          ]
+                 unshipped <- lift $ unshippedSources files
+                 unless (null unshipped) $
+                     liftIO $ IdeLogger.logWarning (ideLogger service) $ T.concat
+                         [ "This DAR will not carry sources compiled into the package that resolve outside source "
+                         , T.pack (show pSrc)
+                         , ", so it cannot be rebuilt from its own contents: "
+                         , T.intercalate ", " [T.pack (show $ fromNormalizedFilePath f) | f <- unshipped]
+                         , "."
+                         ]
                  pure
                    ( createArchive
                        pName pVersion versionInfo
@@ -224,6 +233,11 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
                        ifaces
                    , Just pkgId
                    )
+
+unshippedSources :: [NormalizedFilePath] -> Action [NormalizedFilePath]
+unshippedSources files = do
+    graph <- concatMap (fromMaybe []) <$> mapM getDependencies files
+    pure $ S.toList $ S.fromList graph S.\\ S.fromList files
 
 validateExposedModules :: Maybe [ModuleName] -> [ModuleName] -> MaybeT Action ()
 validateExposedModules mbExposedModules pkgModuleNames = do
