@@ -85,7 +85,7 @@ genrule(
     # It doesn't use these directories, it just wants them to exist
     export HOME=$$(dirname $@)
     export USERPROFILE=$$(dirname $@)
-    $$ORAS pull --platform "{oras_platform}" -o $$(dirname $@) europe-docker.pkg.dev/da-images/public/components/dpm:{version}
+    $$ORAS pull --platform "{oras_platform}" -o $$(dirname $@) ghcr.io/digital-asset/components/dpm:{version}
     chmod +x $@
     downloaded_sha=$$(sha256sum $@)
     if [ "$${{downloaded_sha%% *}}" != "{dpm_sha}" ]; then

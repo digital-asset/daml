@@ -8,7 +8,7 @@
 # Must be run from `sdk`
 
 DPM_VERSION=$1
-DPM_REGISTRY="europe-docker.pkg.dev/da-images/public"
+DPM_REGISTRY="ghcr.io/digital-asset"
 
 if [ -z "$DPM_VERSION" ]; then
   # dpm prints things to stdout when downloading, which is quite annoying
