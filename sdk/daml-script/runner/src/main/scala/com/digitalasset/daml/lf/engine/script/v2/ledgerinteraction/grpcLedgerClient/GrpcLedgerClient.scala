@@ -198,6 +198,7 @@ class GrpcLedgerClient(
       filtersByParty = parties.toSortedSet.toList.map(p => (p, filters)).toMap,
       filtersForAnyParty = None,
       verbose = verbose,
+      filtersByContractId = Seq.empty,
     )
   }
 
@@ -220,6 +221,7 @@ class GrpcLedgerClient(
       filtersByParty = parties.toSortedSet.toList.map(p => (p, filters)).toMap,
       filtersForAnyParty = None,
       verbose = verbose,
+      filtersByContractId = Seq.empty,
     )
   }
 
