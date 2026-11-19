@@ -39,9 +39,7 @@ object CompileUpgradeTestCases {
 
   private val targets: Seq[Target] = Seq(
     Target(
-      // TODO(https://github.com/DACH-NY/canton/issues/31925): revert to LanguageVersion.latestStableLfVersion once
-      //  LF 2.3 is stable
-      LanguageVersion.v2_3,
+      LanguageVersion.latestStableLfVersion,
       rlocation(Paths.get("daml-script/test/upgrade-test-lib.dar")),
       rlocation(Paths.get("daml-script/test/daml/upgrades/stable")),
     )

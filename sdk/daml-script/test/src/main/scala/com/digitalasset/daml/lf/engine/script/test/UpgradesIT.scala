@@ -207,21 +207,21 @@ class UpgradesIT(
   }
 }
 
+object UpgradesIT {
+  // The latest LF version supported by the latest stable protocol version
+  val latestStablePvLfVersion: LanguageVersion = {
+    import com.digitalasset.canton.version.{InterpretationConfig, ProtocolVersion => CantonPV}
+    InterpretationConfig.forProtocolVersion(CantonPV.latest).allowedLanguageVersions.max
+  }
+}
+
 // Because the test cases are listed even before the canton fixture is initialized,
 // `bazel run --sandbox_debug -- -z SubViews` will not wastefully spawn canton for UpgradesITSmallStable. It is thus
 // safe to break down tests into many classes like this.
 class UpgradesITSmallStable
     extends UpgradesIT(
-      // TODO[https://github.com/DACH-NY/canton/issues/31925]: revert to
-      //  ProtocolVersion.latest and LanguageVersion.latestStableLfVersion once
-      //  v35 is stable
-
-      // TODO[https://github.com/digital-asset/daml/issues/23013]: consider
-      //  getting rid of dev here
-      cantonProtocolVersion = ProtocolVersion.Dev,
-      // TODO[https://github.com/digital-asset/daml/issues/23013]: reconsider
-      //  version
-      languageVersion = LanguageVersion.stagingLfVersion,
+      cantonProtocolVersion = ProtocolVersion.Latest,
+      languageVersion = UpgradesIT.latestStablePvLfVersion,
       upgradeTestLibDarPath = "daml-script/test/upgrade-test-lib.dar",
       testFilesDirPath = "daml-script/test/daml/upgrades/stable",
       numParticipants = 2,
@@ -230,14 +230,8 @@ class UpgradesITSmallStable
 
 class UpgradesITLargeStable
     extends UpgradesIT(
-      // TODO[https://github.com/DACH-NY/canton/issues/31925]: revert to
-      //  ProtocolVersion.latest and LanguageVersion.latestStableLfVersion once
-      //  v35 is stable
-      // TODO[https://github.com/DACH-NY/canton/issues/23013]:
-      //  consider getting rid of dev here
-      cantonProtocolVersion = ProtocolVersion.Dev,
-      // TODO[https://github.com/DACH-NY/canton/issues/23013]: reconsider version
-      languageVersion = LanguageVersion.stagingLfVersion,
+      cantonProtocolVersion = ProtocolVersion.Latest,
+      languageVersion = UpgradesIT.latestStablePvLfVersion,
       upgradeTestLibDarPath = "daml-script/test/upgrade-test-lib.dar",
       testFilesDirPath = "daml-script/test/daml/upgrades/stable",
       numParticipants = 5,
