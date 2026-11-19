@@ -1,10 +1,14 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@aspect_bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
+load("@aspect_rules_js//js:defs.bzl", "js_run_binary", "js_test")
 load("@aspect_rules_ts//ts:defs.bzl", "ts_project")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@daml_extension_deps//:defs.bzl", "npm_link_all_packages")
+load("@daml_extension_deps//compiler/daml-extension:@vscode/vsce/package_json.bzl", vsce = "bin")
 load("@jq.bzl//jq:jq.bzl", "jq")
+load("//bazel/js:flat_node_modules.bzl", "flat_node_modules")
 
 npm_link_all_packages(name = "node_modules")
 
@@ -70,63 +74,76 @@ jq(
     filter = '(.version = "{}") | (.name = "daml-bundled")'.format(sdk_version),
 )
 
-genrule(
-    name = "vsix",
+flat_node_modules(
+    name = "production_node_modules",
+    deps = [
+        ":node_modules/@types/semver",
+        ":node_modules/@types/which",
+        ":node_modules/@types/xml2js",
+        ":node_modules/concat-map",
+        ":node_modules/fp-ts",
+        ":node_modules/node-fetch",
+        ":node_modules/semver",
+        ":node_modules/vscode-languageclient",
+        ":node_modules/which",
+        ":node_modules/xml2js",
+    ],
+)
+
+copy_to_directory(
+    name = "vsix_contents",
     srcs = [
-        ":compile",
-        ":stamped_package_json",
-        ":node_modules",
         ".vscodeignore",
         "README.md",
+        "src/webview.css",
+        "src/webview.js",
+        ":compile",
+        ":production_node_modules",
+        ":stamped_package_json",
     ] + glob([
-        "syntaxes/*",
-        "snippets/*",
+        "*.configuration.json",
         "images/*",
-        "*.json",
+        "snippets/*",
+        "syntaxes/*",
     ]),
+    replace_prefixes = {
+        "production_node_modules/": "node_modules/",
+        "stamped_package_json.json": "package.json",
+    },
+)
+
+vsce.vsce_binary(
+    name = "vsce",
+    include_npm = True,
+)
+
+js_run_binary(
+    name = "vsix",
+    srcs = [":vsix_contents"],
     outs = ["daml-bundled.vsix"],
-    cmd = """
-        set -euo pipefail
-        export HOME=/does-not-exist
+    args = [
+        "package",
+        "--out",
+        "../daml-bundled.vsix",
+    ],
+    chdir = package_name() + "/vsix_contents",
+    env = {"HOME": "/does-not-exist"},
+    tool = ":vsce",
+)
 
-        TMP_DIR=$$(mktemp -d)
-        cleanup() { rm -rf $$TMP_DIR || return; }
-        trap cleanup EXIT
-
-        mkdir -p $$TMP_DIR/ext
-
-        # Compiled TypeScript output
-        cp -rL $(RULEDIR)/out $$TMP_DIR/ext/out
-
-        # Stamped package.json (version + name injected)
-        cp $(location :stamped_package_json) $$TMP_DIR/ext/package.json
-
-        # Static assets from source tree
-        cp $(location .vscodeignore) $$TMP_DIR/ext/
-        cp $(location README.md) $$TMP_DIR/ext/
-        for dir in syntaxes snippets images; do
-            if [ -d compiler/daml-extension/$$dir ]; then
-                cp -r compiler/daml-extension/$$dir $$TMP_DIR/ext/
-            fi
-        done
-        # Configuration JSON files (skip package.json and tsconfig.json)
-        for f in compiler/daml-extension/*.json; do
-            if [ -f "$$f" ]; then
-                case "$$(basename $$f)" in
-                    package.json|tsconfig.json) ;;
-                    *) cp "$$f" $$TMP_DIR/ext/ ;;
-                esac
-            fi
-        done
-
-        # node_modules (dereferenced from rules_js pnpm virtual store)
-        cp -rL $(RULEDIR)/node_modules $$TMP_DIR/ext/node_modules
-
-        DIR=$$PWD
-        cd $$TMP_DIR/ext
-        $$DIR/$(NODE_PATH) $$DIR/$(RULEDIR)/node_modules/@vscode/vsce/vsce package --no-dependencies -o $$DIR/$@
-    """,
-    toolchains = ["@rules_nodejs//nodejs:current_node_toolchain"],
+js_test(
+    name = "vsix_smoke_test",
+    timeout = "short",
+    data = [
+        ":vsix",
+        "@bazel_tools//tools/zip:zipper",
+    ],
+    entry_point = "vsix_smoke_test.js",
+    env = {
+        "VSIX": "$(rlocationpath :vsix)",
+        "ZIPPER": "$(rlocationpath @bazel_tools//tools/zip:zipper)",
+    },
+    no_copy_to_bin = ["@bazel_tools//tools/zip:zipper"],
 )
 
 exports_files([
