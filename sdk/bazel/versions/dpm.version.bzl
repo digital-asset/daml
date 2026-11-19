@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # -- dpm (Daml Package Manager) --
-DPM_VERSION = "1.0.15"
+DPM_VERSION = "1.1.1"
 DPM_SHA256 = {
-    "linux_arm64": "987eaef5af0e62af88b9b8aed83757ac2e96476f9dae523f0f63ca749b6cf834",
-    "darwin_amd64": "630c27dfd6142bba0eb33d1a9d58887bb553b32a6fd57dbbb6ac458a20f54f7d",
-    "darwin_arm64": "be769b4f012185c484eeac0577793ba0b8243f3711a8b2d6dec0d3b53135859a",
-    "linux_amd64": "a0ef4cd573948d4f7b414dc5d30d818c27c4e0dc82cd01f84533d143f619556c",
-    "windows_amd64": "e859b23c224f86ea321af38e32e5ae2de25912f4547e01e5f0d6a3089d6c9a11",
+    "linux_arm64": "e1d8df93668e3dd624e1f2714d1a39276774a52ed7fd927989f7dc71827615b8",
+    "darwin_amd64": "a28dac29cf72bb705850f79aa7d9ee9c545c5104689dae02da4145bad129996f",
+    "darwin_arm64": "5769fe7c6dd76301dc9dfa38a64302e806715961eedbc3bf70b1c4fa8e1d43a7",
+    "linux_amd64": "d4873a7229561dd6d07c256b7efe66f10943232494739e9ab53c476356cd42b3",
+    "windows_amd64": "c7fbc2a604eb69505a23ee993f880df88ade94a8a4b08c7d2aa240946a081b36",
 }
