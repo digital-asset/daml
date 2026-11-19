@@ -8,8 +8,25 @@ const path = require("node:path");
 
 const WEBVIEW_ASSETS = ["src/webview.js", "src/webview.css"];
 
+function runfileFromManifest(rlocationPath) {
+  const manifestFile = process.env.RUNFILES_MANIFEST_FILE;
+  assert.ok(
+    manifestFile,
+    `${rlocationPath} is not in the runfiles tree and there is no runfiles manifest`,
+  );
+  const entry = fs
+    .readFileSync(manifestFile, "utf8")
+    .split(/\r?\n/)
+    .find(line => line.startsWith(`${rlocationPath} `));
+  assert.ok(entry, `${rlocationPath} is not in the runfiles manifest`);
+  return entry.slice(rlocationPath.length + 1);
+}
+
 function runfile(rlocationPath) {
-  return path.join(process.env.TEST_SRCDIR, rlocationPath);
+  const runfilesTreePath = path.join(process.env.TEST_SRCDIR, rlocationPath);
+  return fs.existsSync(runfilesTreePath)
+    ? runfilesTreePath
+    : runfileFromManifest(rlocationPath);
 }
 
 function vscodeStub() {
