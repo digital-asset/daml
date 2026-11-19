@@ -78,7 +78,6 @@ final case class CantonConfig(
     tlsEnable: Boolean = false,
     debug: Boolean = false,
     bootstrapScript: Option[String] = None,
-    targetScope: Option[String] = None,
     disableUpgradeValidation: Boolean = false,
     enableRemoteJavaDebugging: Boolean = false,
     snapshotDir: Option[String] = None,
@@ -115,7 +114,7 @@ final case class CantonConfig(
       userId: Ref.IdString.UserId,
       exp: Option[Instant],
   ): Option[String] =
-    CantonRunner.getToken(userId, authSecret, targetScope, exp)
+    CantonRunner.getToken(userId, authSecret, exp)
 
   lazy val adminToken: Option[String] = getToken(
     userId = CantonRunner.adminUserId,
