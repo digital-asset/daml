@@ -4,9 +4,9 @@
 load("@os_info//:os_info.bzl", "is_windows")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("//compatibility/bazel_tools:sdks.bzl", "COMPAT_TAGS")
-load("//compatibility/bazel_tools:untar.bzl", "untar")
+load("//compatibility/bazel_tools:unpacked_dpm_sdk.bzl", "unpacked_dpm_sdk")
 
-untar(
+unpacked_dpm_sdk(
     name = "dpm-sdk",
     src = "//release:dpm-sdk-release-tarball",
     strip_components = 1,
