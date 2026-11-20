@@ -14,6 +14,5 @@ da_haskell_binary(
         "typed-process",
         "process",
     ],
-    visibility = ["//visibility:public"],
     deps = ["//libs-haskell/da-hs-base"],
 )

@@ -50,7 +50,6 @@ da_haskell_library(
         "zip-archive",
     ],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
@@ -101,7 +100,6 @@ da_haskell_library(
         "vector",
     ],
     src_strip_prefix = "test",
-    visibility = ["//visibility:public"],
     deps = [
         ":daml-ide-core",
         "//compiler/daml-lf-ast",

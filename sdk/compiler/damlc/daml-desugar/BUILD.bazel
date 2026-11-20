@@ -15,7 +15,6 @@ da_haskell_library(
         "unordered-containers",
     ],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-ide-core",
@@ -43,7 +42,6 @@ da_haskell_library(
     toolchains = [
         "@rules_sh//sh/posix:make_variables",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         ":daml-desugar",
         "//compiler/daml-lf-ast",

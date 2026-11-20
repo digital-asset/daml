@@ -1,0 +1,46 @@
+diff --git a/haskell/ghc_bindist.bzl b/haskell/ghc_bindist.bzl
+diff --git a/haskell/ghc_bindist.bzl b/haskell/ghc_bindist.bzl
+--- a/haskell/ghc_bindist.bzl
++++ b/haskell/ghc_bindist.bzl
+@@ -245,7 +245,7 @@
+         tools = [":bin"],
+         libraries = "toolchain_libraries",
+         # See Note [GHC toolchain files]
+-        libdir = [":lib"],
++        libdir = [":lib"] + ([":mingw"] if os == "windows" else []),
+         docdir = [":{}".format(docdir)],
+         version = repr(ctx.attr.version),
+         static_runtime = os == "windows",
+diff --git a/haskell/private/runghc.bzl b/haskell/private/runghc.bzl
+--- a/haskell/private/runghc.bzl
++++ b/haskell/private/runghc.bzl
+@@ -17,21 +17,25 @@
+     hs_toolchain = ctx.toolchains["@rules_haskell//haskell:toolchain"]
+ 
+     f = hs_toolchain.tools.runghc
+-    runghc_runfile_path = paths.join(f.owner.workspace_name or ctx.workspace_name, f.short_path)
++    runghc_runfile_path = paths.normalize(paths.join(f.owner.workspace_name or ctx.workspace_name, f.short_path))
+     runghc_wrapper_file = ctx.actions.declare_file(ctx.label.name)
+     ctx.actions.write(
+         output = runghc_wrapper_file,
+         content = """\
+ #!/usr/bin/env python3
+ 
++import os
+ import subprocess
+ import sys
+ from python.runfiles import runfiles
+ 
+-r = runfiles.Create()
++runghc = os.path.join(os.environ.get("RULES_HASKELL_EXEC_ROOT", os.getcwd()), {execroot})
++if not os.path.isfile(runghc):
++    r = runfiles.Create()
++    runghc = r.Rlocation("{runghc}")
+ 
+-subprocess.run([r.Rlocation("{runghc}")] + sys.argv[1:], check=True)
+-""".format(runghc = runghc_runfile_path),
++subprocess.run([runghc] + sys.argv[1:], check=True)
++""".format(runghc = runghc_runfile_path, execroot = repr(f.path)),
+         is_executable = True,
+     )
+ 

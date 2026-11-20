@@ -1,8 +1,8 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test", "generate_and_track_cabal")
 load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test", "generate_and_track_cabal")
 
 da_haskell_library(
     name = "da-gcp-logger",
@@ -24,7 +24,6 @@ da_haskell_library(
         "uuid",
     ] + ([] if is_windows else ["unix"]),
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-project-config",
         "//component-version/hs:component-version-class-lib",
@@ -34,6 +33,7 @@ da_haskell_library(
 
 da_haskell_test(
     name = "da-gcp-logger-telemetry-tests",
+    timeout = "short",
     srcs = glob(["tests/Telemetry.hs"]),
     flaky = True,
     hackage_deps = [
@@ -46,7 +46,6 @@ da_haskell_test(
         "text",
     ],
     main_function = "Telemetry.main",
-    visibility = ["//visibility:public"],
     deps = [
         ":da-gcp-logger",
         "//compiler/daml-project-config",

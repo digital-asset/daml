@@ -1,0 +1,42 @@
+diff --git a/haskell/private/cabal_wrapper.py b/haskell/private/cabal_wrapper.py
+--- a/haskell/private/cabal_wrapper.py
++++ b/haskell/private/cabal_wrapper.py
+@@ -135,6 +135,14 @@
+ ld = find_exe(toolchain_info["ld"])
+ strip = find_exe(toolchain_info["strip"])
+ 
++if is_windows:
++    ghc_mingw_bin = os.path.join(os.path.dirname(os.path.dirname(ghc)), "mingw", "bin")
++    if os.path.isdir(ghc_mingw_bin):
++        ar = os.path.join(ghc_mingw_bin, "ar.exe")
++        cc = os.path.join(ghc_mingw_bin, "gcc.exe")
++        ld = os.path.join(ghc_mingw_bin, "ld.exe")
++        strip = os.path.join(ghc_mingw_bin, "strip.exe")
++
+ def recache_db():
+     run([ghc_pkg, "recache", "--package-db=" + package_database])
+ 
+@@ -298,7 +306,8 @@
+     # and steer GHC away from its baked (dead) settings cc onto cc_wrapper.
+     os.environ["CC_WRAPPER_CC_PATH"] = os.path.join(execroot, os.environ["CC_WRAPPER_CC_PATH"])
+     cc_ghc_args = [flag.replace("$CC", cc).replace("$LD", ld) for flag in toolchain_info["ghc_cc_args"]]
+-    runghc_args = runghc_args + ["--ghc-arg=" + a for a in cc_ghc_args]
++    if not is_windows:
++        runghc_args = runghc_args + ["--ghc-arg=" + a for a in cc_ghc_args]
+ 
+     def _abs_cc_flag(tok):
+         for pre in ("-isystem", "-iquote", "-I", "-L", "-B", "-F", ""):
+@@ -314,6 +323,13 @@
+     cc_linker_flags = [_abs_cc_flag(f) for f in toolchain_info["cc_linker_flags"]]
+     cc_cflags_all = cc_cpp_flags + cc_compiler_flags + cc_include_args
+ 
++    if is_windows:
++        cc_compiler_flags = []
++        cc_cpp_flags = []
++        cc_include_args = []
++        cc_linker_flags = []
++        cc_cflags_all = []
++
+     if not deps_package_db:
+         path_args.extend(["--package-db=" + os.path.dirname(db) for db in deps_package_databases])
+     path_args = [ arg.replace("=", "=" + cfg_execroot + "/") for arg in path_args ]
