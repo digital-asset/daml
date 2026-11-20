@@ -85,7 +85,7 @@ object CodegenMain {
             .map(e => e.getMessage)
         // Search for package in resolution, must use `Path.equals` else windows will break
         packageResolution = allPackages.toList
-          .map { case (p, j) => (Paths.get(p), j) }
+          .map { case (p, j) => (Paths.get(p.toLowerCase()), j) }
           .find { case (p, _) => runPath.equals(p) }
           .fold(defaultResolution)(_._2)
         // Grab the codegen version, only support componentsV2
