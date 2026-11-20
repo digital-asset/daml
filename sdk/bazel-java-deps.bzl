@@ -17,7 +17,7 @@ load("@java_deps_json//:java_deps.bzl", "JAVA_DEPS")
 version_specific = {
 }
 
-canton_version = "3.7.0-SNAPSHOT" if LOCAL_CANTON_PATH != None else CANTON_OPEN_SOURCE_TAG
+canton_version = "3.9.0-SNAPSHOT" if LOCAL_CANTON_PATH != None else CANTON_OPEN_SOURCE_TAG
 
 def install_java_deps():
     maven_install(
