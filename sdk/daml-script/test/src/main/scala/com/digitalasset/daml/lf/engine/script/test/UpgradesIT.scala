@@ -60,7 +60,9 @@ class UpgradesIT(
   // Maybe provide our own tracer that doesn't tag, it makes the logs very long
   "Multi-participant Daml Script Upgrades" should {
     testCases.filter(testCaseFilter).foreach { testCase =>
-      (testCase.name + " on IDE Ledger") in {
+      // The IDE ledger only knows the script's packages, so it cannot run test
+      // cases relying on packages hidden from the script
+      if (testCase.hiddenUnitIds.isEmpty) (testCase.name + " on IDE Ledger") in {
         for {
           // Build dars
           (testDarPath, _) <- testUtil.buildTestCaseDarMemoized(languageVersion, testCase)

@@ -368,6 +368,7 @@ object ScriptF {
               Converter
                 .translateTransactionTree(
                   env.lookupChoice,
+                  env.compiledPackages.signatures.contains,
                   env.scriptIds,
                   tree,
                 )

@@ -8,8 +8,9 @@ Each test module can have one or more `PACKAGE` definitions in the following for
 {- PACKAGE
 name: <the-package-name>
 versions: <number of versions to create as an int, will generate 1.0.0, 2.0.0, ..., n.0.0>
-lf-version: <the-lf-version, default to 1.dev>
+lf-version: <the-lf-version, default to the LF version of the test suite>
 depends: <newline separated list of unid-id dependencies, default to empty>
+hidden-versions: <list of versions to hide from the script, e.g. [2], default to []>
 -}
 ```
 
@@ -32,6 +33,11 @@ NOTES:
   * Order of package definitions is not important for the `depends` field, it will resolve the build order for you.
     * Only top level packages will be uploaded to Canton explicitly, to avoid duplicate checks wasting time.
   * Only packages defined in the same file can be depended on using `depends`.
+  * Versions listed in `hidden-versions` are built and uploaded to Canton like any other, but are left out of the
+    test script's dependencies, so they cannot be imported (no `Vn` prefix) and are unknown to the script at runtime.
+    This is for testing how daml-script handles packages it doesn't know about.
+    * A hidden version can still reach the script transitively, if a version that is not hidden depends on it.
+    * Test files with any hidden version are only run on Canton, not on the IDE ledger.
 
 The contents of each module can use a version comment syntax to include subsets of code in a specific version.
 The syntax for this is `<some code> -- @V <space separated versions>`. For example

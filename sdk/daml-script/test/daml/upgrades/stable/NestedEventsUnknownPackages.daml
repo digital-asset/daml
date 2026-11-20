@@ -1,0 +1,770 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Transaction trees with nested events from packages the script doesn't know
+-- (https://github.com/digital-asset/daml/issues/23394).
+-- Uses hidden versions, so this only runs on Canton. In the template and 
+-- interface names below, "known" and "unknown" always mean known or unknown to
+-- the script.
+-- Canton vets every version below, hidden or not, unless a test unvets one. The
+-- comments on the tests show which versions of the relevant packages are vetted
+-- and known, then the expected transaction tree, with the version the ledger
+-- runs at each node and, in parentheses, how the script sees it.
+
+{-# LANGUAGE ApplicativeDo #-}
+
+module NestedEventsUnknownPackages (main) where
+
+import UpgradeTestLib
+import NestedUnknownIface
+import qualified V1.NestedUnknownMain as V1
+import qualified V2.NestedUnknownRev as RevV2
+import qualified V1.NestedUnknownPref as PrefV1
+import qualified V3.NestedUnknownPref as PrefV3
+import qualified V1.NestedUnknownPrefParent as PrefParentV1
+import PackageIds
+import DA.Optional (isNone)
+import DA.Text qualified as T
+
+-- Interface known to the script
+{- PACKAGE
+name: nested-unknown-iface
+versions: 1
+-}
+
+{- MODULE
+package: nested-unknown-iface
+contents: |
+  module NestedUnknownIface where
+
+  data IV = IV with
+    owner : Party
+
+  interface I where
+    viewtype IV
+
+    nonconsuming choice IC : ()
+      controller (view this).owner
+      do pure ()
+-}
+
+-- Interface unknown to the script, only depended on by nested-unknown-main V2
+{- PACKAGE
+name: nested-unknown-iface2
+versions: 1
+hidden-versions: [1]
+-}
+
+{- MODULE
+package: nested-unknown-iface2
+contents: |
+  module NestedUnknownIface2 where
+
+  data IV2 = IV2 with
+    owner2 : Party
+
+  interface I2 where
+    viewtype IV2
+
+    nonconsuming choice I2C : ()
+      controller (view this).owner2
+      do pure ()
+-}
+
+-- Package unknown to the script, only depended on by nested-unknown-main V2
+{- PACKAGE
+name: nested-unknown-dep
+versions: 1
+hidden-versions: [1]
+-}
+
+{- MODULE
+package: nested-unknown-dep
+contents: |
+  module NestedUnknownDep where
+
+  template DepT with
+      p : Party
+    where
+    signatory p
+-}
+
+-- The script only knows V1, the ledger runs V2
+{- PACKAGE
+name: nested-unknown-main
+versions: 2
+hidden-versions: [2]
+depends: |
+  nested-unknown-iface-1.0.0
+  nested-unknown-iface2-1.0.0 -- @V  2
+  nested-unknown-dep-1.0.0    -- @V  2
+-}
+
+{- MODULE
+package: nested-unknown-main
+contents: |
+  module NestedUnknownMain where
+
+  import NestedUnknownIface
+  import NestedUnknownIface2 -- @V  2
+  import NestedUnknownDep    -- @V  2
+
+  data Ret = Ret with
+      x : Int
+      y : Optional Int -- @V  2
+    deriving (Eq, Show)
+
+  template Child with
+      p : Party
+      extra : Optional Int -- @V  2
+    where
+    signatory p
+
+  template NewChild with -- @V  2
+      p : Party          -- @V  2
+      n : Int            -- @V  2
+    where                -- @V  2
+    signatory p          -- @V  2
+
+  template NewIfaceTarget with -- @V  2
+      p : Party                -- @V  2
+    where                      -- @V  2
+    signatory p                -- @V  2
+    interface instance I for NewIfaceTarget where -- @V  2
+      view = IV p                                 -- @V  2
+
+  template Target with
+      p : Party
+    where
+    signatory p
+
+    nonconsuming choice TC : ()
+      controller p
+      do
+        _ <- create (Child p)      -- @V 1
+        _ <- create (Child p None) -- @V  2
+        pure ()
+
+    nonconsuming choice TCExtra : ()
+      with
+        n : Int
+        extra : Optional Int -- @V  2
+      controller p
+      do
+        _ <- create (Child p)      -- @V 1
+        _ <- create (Child p None) -- @V  2
+        pure ()
+
+    nonconsuming choice NewChoice : () -- @V  2
+      controller p                     -- @V  2
+      do pure ()                       -- @V  2
+
+    nonconsuming choice GetRet : Ret
+      controller p
+      do
+        pure (Ret 0)          -- @V 1
+        pure (Ret 0 (Some 1)) -- @V  2
+
+    interface instance I for Target where
+      view = IV p
+
+    interface instance I2 for Target where -- @V  2
+      view = IV2 p                         -- @V  2
+
+  template Parent with
+      p : Party
+    where
+    signatory p
+
+    nonconsuming choice SpawnChild : ()
+      controller p
+      do
+        _ <- create (Child p)      -- @V 1
+        _ <- create (Child p None) -- @V  2
+        pure ()
+
+    nonconsuming choice SpawnChildSome : ()
+      controller p
+      do
+        _ <- create (Child p)          -- @V 1
+        _ <- create (Child p (Some 1)) -- @V  2
+        pure ()
+
+    nonconsuming choice ExTCExtraSome : ()
+      with tcid : ContractId Target
+      controller p
+      do
+        pure ()                            -- @V 1
+        exercise tcid (TCExtra 0 (Some 1)) -- @V  2
+
+    nonconsuming choice SpawnNew : ()
+      controller p
+      do
+        _ <- create (NewChild p 0) -- @V  2
+        pure ()
+
+    nonconsuming choice SpawnTwoNew : ()
+      controller p
+      do
+        _ <- create (NewChild p 1) -- @V  2
+        _ <- create (NewChild p 2) -- @V  2
+        pure ()
+
+    nonconsuming choice SpawnDep : ()
+      controller p
+      do
+        _ <- create (DepT p) -- @V  2
+        pure ()
+
+    nonconsuming choice ExTarget : ()
+      with tcid : ContractId Target
+      controller p
+      do exercise tcid TC
+
+    nonconsuming choice ExNewChoice : ()
+      with tcid : ContractId Target
+      controller p
+      do
+        pure ()                 -- @V 1
+        exercise tcid NewChoice -- @V  2
+
+    nonconsuming choice ExRet : ()
+      with tcid : ContractId Target
+      controller p
+      do
+        _ <- exercise tcid GetRet
+        pure ()
+
+    nonconsuming choice ExIface : ()
+      with tcid : ContractId Target
+      controller p
+      do exercise (toInterfaceContractId @I tcid) IC
+
+    nonconsuming choice ExIfaceOfNewTemplate : ()
+      controller p
+      do
+        pure ()                                    -- @V 1
+        cid <- create (NewIfaceTarget p)           -- @V  2
+        exercise (toInterfaceContractId @I cid) IC -- @V  2
+
+    nonconsuming choice ExIface2 : ()
+      with tcid : ContractId Target
+      controller p
+      do
+        pure ()                                       -- @V 1
+        exercise (toInterfaceContractId @I2 tcid) I2C -- @V  2
+-}
+
+-- The script only knows V2, the ledger runs V1 (V2 is unvetted in the test)
+{- PACKAGE
+name: nested-unknown-rev
+versions: 2
+hidden-versions: [1]
+-}
+
+{- MODULE
+package: nested-unknown-rev
+contents: |
+  module NestedUnknownRev where
+
+  template RevChild with
+      p : Party
+      extra : Optional Int -- @V  2
+    where
+    signatory p
+
+  template RevParent with
+      p : Party
+    where
+    signatory p
+
+    nonconsuming choice RevSpawn : ()
+      controller p
+      do
+        _ <- create (RevChild p)      -- @V 1
+        _ <- create (RevChild p None) -- @V  2
+        pure ()
+-}
+
+-- The script knows V1 and V3, V2 is hidden. Only nested-unknown-pref-parent V2
+-- (also hidden) depends on V2.
+{- PACKAGE
+name: nested-unknown-pref
+versions: 3
+hidden-versions: [2]
+-}
+
+{- MODULE
+package: nested-unknown-pref
+contents: |
+  module NestedUnknownPref where
+
+  template PrefChild with
+      p : Party
+      extra : Optional Int -- @V  2 3
+    where
+    signatory p
+
+  template PrefTarget with
+      p : Party
+    where
+    signatory p
+
+    nonconsuming choice PrefChoice : ()
+      controller p
+      do pure ()
+-}
+
+-- The script knows V1, the ledger runs V2, which creates and exercises
+-- nested-unknown-pref V2 contracts
+{- PACKAGE
+name: nested-unknown-pref-parent
+versions: 2
+hidden-versions: [2]
+depends: |
+  nested-unknown-pref-1.0.0 -- @V 1
+  nested-unknown-pref-2.0.0 -- @V  2
+-}
+
+{- MODULE
+package: nested-unknown-pref-parent
+contents: |
+  module NestedUnknownPrefParent where
+
+  import NestedUnknownPref
+
+  template PrefParent with
+      p : Party
+    where
+    signatory p
+
+    nonconsuming choice PrefSpawn : ()
+      controller p
+      do
+        _ <- create (PrefChild p)      -- @V 1
+        _ <- create (PrefChild p None) -- @V  2
+        pure ()
+
+    nonconsuming choice PrefExercise : ()
+      with tcid : ContractId PrefTarget
+      controller p
+      do exercise tcid PrefChoice
+-}
+
+main : TestTree
+main = tests
+  [ ("nested create from an unknown version is downgraded to a known one", downgradedCreate)
+  , ("nested create from an unknown version is upgraded to a known one", upgradedCreate)
+  , ("nested create from an unknown version that cannot be downgraded is opaque", createNotDowngradable)
+  , ("nested exercise from an unknown version that cannot be downgraded is opaque", exerciseNotDowngradable)
+  , ("nested create of a template that only exists in an unknown version is opaque", createOfNewTemplate)
+  , ("nested create from an unknown package name is opaque", createFromUnknownPackage)
+  , ("nested exercise from an unknown version is downgraded to a known one", downgradedExercise)
+  , ("nested exercise of an unknown choice is opaque", exerciseOfNewChoice)
+  , ("nested choice result that cannot be downgraded is ignored", choiceResultNotDowngradable)
+  , ("nested exercise by a known interface has its template id downgraded to a known version", exerciseByKnownInterface)
+  , ("nested exercise by a known interface keeps its template id if no known version has the template", exerciseByKnownInterfaceOfNewTemplate)
+  , ("nested exercise by an unknown interface is opaque", exerciseByUnknownInterface)
+  , ("nested create from an unknown version is upgraded to the highest known one", createUpgradedToHighestVersion)
+  , ("nested create from an unknown version is downgraded to the preferred one", createDowngradedToPreferredVersion)
+  , ("nested exercise from an unknown version is upgraded to the highest known one", exerciseUpgradedToHighestVersion)
+  , ("nested exercise from an unknown version is downgraded to the preferred one", exerciseDowngradedToPreferredVersion)
+  , ("opaque values of the same type compare equal", opaqueValuesCompareEqual)
+  , ("opaque values differ from decoded ones", opaqueDiffersFromDecoded)
+  , ("show works on trees with opaque events", showOpaqueTree)
+  , ("top-level choice result that cannot be downgraded fails the submission", topLevelResultNotDowngradable)
+  ]
+
+-- Canton creates both contracts as V2, the highest vetted version
+setup : Script (Party, ContractId V1.Parent, ContractId V1.Target)
+setup = do
+  p <- allocateParty "alice"
+  parent <- p `submit` createCmd (V1.Parent p)
+  target <- p `submit` createCmd (V1.Target p)
+  pure (p, parent, target)
+
+-- The only child of the only root event of a tree
+singleChild : TransactionTree -> Script TreeEvent
+singleChild (TransactionTree [ExercisedEvent ex]) | [child] <- ex.childEvents = pure child
+singleChild tree = assertFail $ "Expected one root exercise with one child, got " <> show tree
+
+expectCreated : TreeEvent -> Script Created
+expectCreated (CreatedEvent cr) = pure cr
+expectCreated ev = assertFail $ "Expected a created event, got " <> show ev
+
+expectExercised : TreeEvent -> Script Exercised
+expectExercised (ExercisedEvent ex) = pure ex
+expectExercised ev = assertFail $ "Expected an exercised event, got " <> show ev
+
+-- None of the templates the script knows match an opaque create
+assertOpaqueCreate : Created -> Script ()
+assertOpaqueCreate cr = do
+  assertMsg "fromAnyTemplate @V1.Child should be None" $ isNone (fromAnyTemplate @V1.Child cr.argument)
+  assertMsg "fromAnyTemplate @V1.Target should be None" $ isNone (fromAnyTemplate @V1.Target cr.argument)
+  assertMsg "fromAnyTemplate @V1.Parent should be None" $ isNone (fromAnyTemplate @V1.Parent cr.argument)
+  fromAnyContractId @V1.Child cr.contractId === None
+  fromAnyContractId @V1.Target cr.contractId === None
+  fromAnyContractId @V1.Parent cr.contractId === None
+
+-- | package             | vetted by Canton | known to the script |
+-- |---------------------|------------------|---------------------|
+-- | nested-unknown-main | 1.0.0, 2.0.0     | 1.0.0               |
+--
+-- submit, submitTree and submitResultAndTree all give:
+-- Exercise V2.Parent SpawnChild  (downgraded to V1.Parent)
+-- └─ Create V2.Child             (downgraded to V1.Child)
+downgradedCreate : Test
+downgradedCreate = test $ do
+  (p, parent, _) <- setup
+  let checkTree tree = do
+        cr <- singleChild tree >>= expectCreated
+        fromAnyTemplate @V1.Child cr.argument === Some (V1.Child p)
+        let cid = fromTree tree (exercised @V1.Parent "SpawnChild" $ created @V1.Child)
+        fromAnyContractId @V1.Child cr.contractId === Some cid
+  p `submit` exerciseCmd parent V1.SpawnChild
+  tree <- p `submitTree` exerciseCmd parent V1.SpawnChild
+  checkTree tree
+  (_, tree') <- p `submitResultAndTree` exerciseCmd parent V1.SpawnChild
+  checkTree tree'
+
+-- | package            | vetted by Canton | known to the script |
+-- |--------------------|------------------|---------------------|
+-- | nested-unknown-rev | 1.0.0            | 2.0.0               |
+-- (2.0.0 is unvetted by the test)
+--
+-- submit, submitTree and submitResultAndTree all give:
+-- Exercise RevV1.RevParent RevSpawn  (upgraded to RevV2.RevParent)
+-- └─ Create RevV1.RevChild           (upgraded to RevV2.RevChild)
+upgradedCreate : Test
+upgradedCreate = test $ withUnvettedPackage "nested-unknown-rev" "2.0.0" $ do
+  p <- allocateParty "alice"
+  parent <- p `submit` createCmd (RevV2.RevParent p)
+  let checkTree tree = do
+        cr <- singleChild tree >>= expectCreated
+        fromAnyTemplate @RevV2.RevChild cr.argument === Some (RevV2.RevChild p None)
+        let cid = fromTree tree (exercised @RevV2.RevParent "RevSpawn" $ created @RevV2.RevChild)
+        fromAnyContractId @RevV2.RevChild cr.contractId === Some cid
+  p `submit` exerciseCmd parent RevV2.RevSpawn
+  tree <- p `submitTree` exerciseCmd parent RevV2.RevSpawn
+  checkTree tree
+  (_, tree') <- p `submitResultAndTree` exerciseCmd parent RevV2.RevSpawn
+  checkTree tree'
+
+-- | package             | vetted by Canton | known to the script |
+-- |---------------------|------------------|---------------------|
+-- | nested-unknown-main | 1.0.0, 2.0.0     | 1.0.0               |
+--
+-- Exercise V2.Parent SpawnChildSome       (downgraded to V1.Parent)
+-- └─ Create V2.Child with extra = Some 1  (opaque: can't be downgraded)
+createNotDowngradable : Test
+createNotDowngradable = test $ do
+  (p, parent, _) <- setup
+  tree <- p `submitTree` exerciseCmd parent V1.SpawnChildSome
+  cr <- singleChild tree >>= expectCreated
+  assertOpaqueCreate cr
+
+-- | package             | vetted by Canton | known to the script |
+-- |---------------------|------------------|---------------------|
+-- | nested-unknown-main | 1.0.0, 2.0.0     | 1.0.0               |
+--
+-- Exercise V2.Parent ExTCExtraSome                   (downgraded to V1.Parent)
+-- └─ Exercise V2.Target TCExtra with extra = Some 1  (opaque: can't be downgraded)
+--    └─ Create V2.Child                              (downgraded to V1.Child)
+exerciseNotDowngradable : Test
+exerciseNotDowngradable = test $ do
+  (p, parent, target) <- setup
+  tree <- p `submitTree` exerciseCmd parent (V1.ExTCExtraSome target)
+  ex <- singleChild tree >>= expectExercised
+  ex.choice === "TCExtra"
+  assertMsg "fromAnyChoice @V1.Target @V1.TCExtra should be None" $ isNone (fromAnyChoice @V1.Target @V1.TCExtra ex.argument)
+  case ex.childEvents of
+    [CreatedEvent cr] -> fromAnyTemplate @V1.Child cr.argument === Some (V1.Child p)
+    evs -> assertFail $ "Expected one created event under TCExtra, got " <> show evs
+
+-- | package             | vetted by Canton | known to the script |
+-- |---------------------|------------------|---------------------|
+-- | nested-unknown-main | 1.0.0, 2.0.0     | 1.0.0               |
+--
+-- Exercise V2.Parent SpawnNew  (downgraded to V1.Parent)
+-- └─ Create V2.NewChild        (opaque: not in V1)
+createOfNewTemplate : Test
+createOfNewTemplate = test $ do
+  (p, parent, _) <- setup
+  tree <- p `submitTree` exerciseCmd parent V1.SpawnNew
+  cr <- singleChild tree >>= expectCreated
+  assertOpaqueCreate cr
+
+-- | package             | vetted by Canton | known to the script |
+-- |---------------------|------------------|---------------------|
+-- | nested-unknown-main | 1.0.0, 2.0.0     | 1.0.0               |
+-- | nested-unknown-dep  | 1.0.0            | -                   |
+--
+-- Exercise V2.Parent SpawnDep  (downgraded to V1.Parent)
+-- └─ Create DepV1.DepT         (opaque: unknown package)
+createFromUnknownPackage : Test
+createFromUnknownPackage = test $ do
+  (p, parent, _) <- setup
+  tree <- p `submitTree` exerciseCmd parent V1.SpawnDep
+  cr <- singleChild tree >>= expectCreated
+  assertOpaqueCreate cr
+
+-- | package             | vetted by Canton | known to the script |
+-- |---------------------|------------------|---------------------|
+-- | nested-unknown-main | 1.0.0, 2.0.0     | 1.0.0               |
+--
+-- Exercise V2.Parent ExTarget  (downgraded to V1.Parent)
+-- └─ Exercise V2.Target TC     (downgraded to V1.Target)
+--    └─ Create V2.Child        (downgraded to V1.Child)
+downgradedExercise : Test
+downgradedExercise = test $ do
+  (p, parent, target) <- setup
+  tree <- p `submitTree` exerciseCmd parent (V1.ExTarget target)
+  ex <- singleChild tree >>= expectExercised
+  ex.choice === "TC"
+  fromAnyChoice @V1.Target @V1.TC ex.argument === Some V1.TC
+  fromAnyContractId @V1.Target ex.contractId === Some target
+  let cid = fromTree tree (exercised @V1.Parent "ExTarget" $ exercised @V1.Target "TC" $ created @V1.Child)
+  case ex.childEvents of
+    [CreatedEvent cr] -> fromAnyContractId @V1.Child cr.contractId === Some cid
+    evs -> assertFail $ "Expected one created event under TC, got " <> show evs
+
+-- | package             | vetted by Canton | known to the script |
+-- |---------------------|------------------|---------------------|
+-- | nested-unknown-main | 1.0.0, 2.0.0     | 1.0.0               |
+--
+-- Exercise V2.Parent ExNewChoice   (downgraded to V1.Parent)
+-- └─ Exercise V2.Target NewChoice  (opaque: choice not in V1)
+exerciseOfNewChoice : Test
+exerciseOfNewChoice = test $ do
+  (p, parent, target) <- setup
+  tree <- p `submitTree` exerciseCmd parent (V1.ExNewChoice target)
+  ex <- singleChild tree >>= expectExercised
+  ex.choice === "NewChoice"
+  let AnyChoice _ rep = ex.argument
+  assertMsg "The opaque choice's template type rep should not be V1.Target's" $ rep /= templateTypeRep @V1.Target
+  fromAnyContractId @V1.Target ex.contractId === None
+
+-- | package             | vetted by Canton | known to the script |
+-- |---------------------|------------------|---------------------|
+-- | nested-unknown-main | 1.0.0, 2.0.0     | 1.0.0               |
+--
+-- Exercise V2.Parent ExRet      (downgraded to V1.Parent)
+-- └─ Exercise V2.Target GetRet  (downgraded to V1.Target, result not converted)
+choiceResultNotDowngradable : Test
+choiceResultNotDowngradable = test $ do
+  (p, parent, target) <- setup
+  tree <- p `submitTree` exerciseCmd parent (V1.ExRet target)
+  ex <- singleChild tree >>= expectExercised
+  ex.choice === "GetRet"
+  fromAnyChoice @V1.Target @V1.GetRet ex.argument === Some V1.GetRet
+
+-- | package              | vetted by Canton | known to the script |
+-- |----------------------|------------------|---------------------|
+-- | nested-unknown-main  | 1.0.0, 2.0.0     | 1.0.0               |
+-- | nested-unknown-iface | 1.0.0            | 1.0.0               |
+--
+-- Exercise V2.Parent ExIface              (downgraded to V1.Parent)
+-- └─ Exercise V2.Target IC via IfaceV1.I  (template id downgraded to V1.Target)
+exerciseByKnownInterface : Test
+exerciseByKnownInterface = test $ do
+  (p, parent, target) <- setup
+  tree <- p `submitTree` exerciseCmd parent (V1.ExIface target)
+  ex <- singleChild tree >>= expectExercised
+  ex.choice === "IC"
+  fromAnyContractId @V1.Target ex.contractId === Some target
+
+-- | package              | vetted by Canton | known to the script |
+-- |----------------------|------------------|---------------------|
+-- | nested-unknown-main  | 1.0.0, 2.0.0     | 1.0.0               |
+-- | nested-unknown-iface | 1.0.0            | 1.0.0               |
+--
+-- Exercise V2.Parent ExIfaceOfNewTemplate         (downgraded to V1.Parent)
+-- ├─ Create V2.NewIfaceTarget                     (opaque: not in V1)
+-- └─ Exercise V2.NewIfaceTarget IC via IfaceV1.I  (template id kept: not in V1)
+exerciseByKnownInterfaceOfNewTemplate : Test
+exerciseByKnownInterfaceOfNewTemplate = test $ do
+  (p, parent, _) <- setup
+  tree <- p `submitTree` exerciseCmd parent V1.ExIfaceOfNewTemplate
+  case tree of
+    TransactionTree [ExercisedEvent (Exercised _ _ _ [CreatedEvent cr, ExercisedEvent ex])] -> do
+      assertOpaqueCreate cr
+      ex.choice === "IC"
+      fromAnyChoice @I @IC ex.argument === Some IC
+      fromAnyContractId @V1.Target ex.contractId === None
+      assertMsg "The exercise should have the real template id, the same as the opaque create's" $ ex.contractId == cr.contractId
+    _ -> assertFail $ "Expected one root exercise with a created and an exercised child, got " <> show tree
+
+-- | package               | vetted by Canton | known to the script |
+-- |-----------------------|------------------|---------------------|
+-- | nested-unknown-main   | 1.0.0, 2.0.0     | 1.0.0               |
+-- | nested-unknown-iface2 | 1.0.0            | -                   |
+--
+-- Exercise V2.Parent ExIface2                (downgraded to V1.Parent)
+-- └─ Exercise V2.Target I2C via Iface2V1.I2  (opaque: unknown interface)
+exerciseByUnknownInterface : Test
+exerciseByUnknownInterface = test $ do
+  (p, parent, target) <- setup
+  tree <- p `submitTree` exerciseCmd parent (V1.ExIface2 target)
+  ex <- singleChild tree >>= expectExercised
+  ex.choice === "I2C"
+  let AnyChoice _ rep = ex.argument
+  assertMsg "The opaque choice's type rep should not be V1.Target's" $ rep /= templateTypeRep @V1.Target
+
+-- | package                    | vetted by Canton    | known to the script |
+-- |----------------------------|---------------------|---------------------|
+-- | nested-unknown-pref        | 1.0.0, 2.0.0, 3.0.0 | 1.0.0, 3.0.0        |
+-- | nested-unknown-pref-parent | 1.0.0, 2.0.0        | 1.0.0               |
+--
+-- Canton creates the parent as PrefParentV2 and the target as PrefV3, the
+-- highest vetted versions.
+setupPref : Script (Party, ContractId PrefParentV1.PrefParent, ContractId PrefV3.PrefTarget)
+setupPref = do
+  p <- allocateParty "alice"
+  parent <- p `submit` createCmd (PrefParentV1.PrefParent p)
+  target <- p `submit` createCmd (PrefV3.PrefTarget p)
+  pure (p, parent, target)
+
+nestedUnknownPrefV1 : PackageId
+nestedUnknownPrefV1 = getPackageId "nested-unknown-pref-1.0.0"
+
+-- Vetted and known versions as in setupPref.
+--
+-- With no package preference, the nested create is upgraded to the highest
+-- known version:
+-- Exercise PrefParentV2.PrefParent PrefSpawn  (downgraded to PrefParentV1.PrefParent)
+-- └─ Create PrefV2.PrefChild                  (upgraded to PrefV3.PrefChild)
+createUpgradedToHighestVersion : Test
+createUpgradedToHighestVersion = test $ do
+  (p, parent, _) <- setupPref
+  tree <- p `submitTree` exerciseCmd parent PrefParentV1.PrefSpawn
+  cr <- singleChild tree >>= expectCreated
+  fromAnyTemplate @PrefV3.PrefChild cr.argument === Some (PrefV3.PrefChild p None)
+  assertMsg "fromAnyTemplate @PrefV1.PrefChild should be None" $ isNone (fromAnyTemplate @PrefV1.PrefChild cr.argument)
+
+-- Vetted and known versions as in setupPref.
+--
+-- With a package preference for PrefV1, the ledger still runs PrefParentV2,
+-- hence PrefV2, and the nested create is downgraded to the preferred version:
+-- Exercise PrefParentV2.PrefParent PrefSpawn  (downgraded to PrefParentV1.PrefParent)
+-- └─ Create PrefV2.PrefChild                  (downgraded to PrefV1.PrefChild)
+createDowngradedToPreferredVersion : Test
+createDowngradedToPreferredVersion = test $ do
+  (p, parent, _) <- setupPref
+  tree <- (actAs p <> packagePreference [nestedUnknownPrefV1]) `submitTree` exerciseCmd parent PrefParentV1.PrefSpawn
+  cr <- singleChild tree >>= expectCreated
+  fromAnyTemplate @PrefV1.PrefChild cr.argument === Some (PrefV1.PrefChild p)
+  assertMsg "fromAnyTemplate @PrefV3.PrefChild should be None" $ isNone (fromAnyTemplate @PrefV3.PrefChild cr.argument)
+
+-- Vetted and known versions as in setupPref.
+--
+-- The target is a PrefV3 contract, but PrefParentV2 exercises it as PrefV2. With
+-- no package preference, the nested exercise is upgraded to the highest known
+-- version:
+-- Exercise PrefParentV2.PrefParent PrefExercise  (downgraded to PrefParentV1.PrefParent)
+-- └─ Exercise PrefV2.PrefTarget PrefChoice       (upgraded to PrefV3.PrefTarget)
+exerciseUpgradedToHighestVersion : Test
+exerciseUpgradedToHighestVersion = test $ do
+  (p, parent, target) <- setupPref
+  tree <- p `submitTree` exerciseCmd parent (PrefParentV1.PrefExercise (coerceContractId target))
+  ex <- singleChild tree >>= expectExercised
+  ex.choice === "PrefChoice"
+  fromAnyChoice @PrefV3.PrefTarget @PrefV3.PrefChoice ex.argument === Some PrefV3.PrefChoice
+  assertMsg "fromAnyChoice @PrefV1.PrefTarget should be None" $ isNone (fromAnyChoice @PrefV1.PrefTarget @PrefV1.PrefChoice ex.argument)
+  fromAnyContractId @PrefV3.PrefTarget ex.contractId === Some target
+
+-- Vetted and known versions as in setupPref.
+--
+-- The target is a PrefV3 contract, but PrefParentV2 exercises it as PrefV2. With
+-- a package preference for PrefV1, the ledger still runs PrefParentV2, and the
+-- nested exercise is downgraded to the preferred version:
+-- Exercise PrefParentV2.PrefParent PrefExercise  (downgraded to PrefParentV1.PrefParent)
+-- └─ Exercise PrefV2.PrefTarget PrefChoice       (downgraded to PrefV1.PrefTarget)
+exerciseDowngradedToPreferredVersion : Test
+exerciseDowngradedToPreferredVersion = test $ do
+  (p, parent, target) <- setupPref
+  tree <- (actAs p <> packagePreference [nestedUnknownPrefV1]) `submitTree` exerciseCmd parent (PrefParentV1.PrefExercise (coerceContractId target))
+  ex <- singleChild tree >>= expectExercised
+  ex.choice === "PrefChoice"
+  fromAnyChoice @PrefV1.PrefTarget @PrefV1.PrefChoice ex.argument === Some PrefV1.PrefChoice
+  assertMsg "fromAnyChoice @PrefV3.PrefTarget should be None" $ isNone (fromAnyChoice @PrefV3.PrefTarget @PrefV3.PrefChoice ex.argument)
+  fromAnyContractId @PrefV1.PrefTarget ex.contractId === Some (coerceContractId target)
+
+-- Accepted limitation: the payload of opaque values is (), so two opaque values
+-- of the same type are equal even if the hidden values differ.
+--
+-- | package             | vetted by Canton | known to the script |
+-- |---------------------|------------------|---------------------|
+-- | nested-unknown-main | 1.0.0, 2.0.0     | 1.0.0               |
+--
+-- Exercise V2.Parent SpawnTwoNew    (downgraded to V1.Parent)
+-- ├─ Create V2.NewChild with n = 1  (opaque: not in V1)
+-- └─ Create V2.NewChild with n = 2  (opaque: not in V1)
+opaqueValuesCompareEqual : Test
+opaqueValuesCompareEqual = test $ do
+  (p, parent, _) <- setup
+  tree <- p `submitTree` exerciseCmd parent V1.SpawnTwoNew
+  case tree of
+    TransactionTree [ExercisedEvent (Exercised _ _ _ [CreatedEvent cr1, CreatedEvent cr2])] -> do
+      assertMsg "Opaque values of the same type should be equal" $ cr1.argument == cr2.argument
+      assertMsg "Opaque values of the same type should compare EQ" $ compare cr1.argument cr2.argument == EQ
+    _ -> assertFail $ "Expected one root exercise with two created children, got " <> show tree
+
+-- | package             | vetted by Canton | known to the script |
+-- |---------------------|------------------|---------------------|
+-- | nested-unknown-main | 1.0.0, 2.0.0     | 1.0.0               |
+--
+-- Exercise V2.Parent SpawnNew  (downgraded to V1.Parent)
+-- └─ Create V2.NewChild        (opaque: not in V1)
+opaqueDiffersFromDecoded : Test
+opaqueDiffersFromDecoded = test $ do
+  (p, parent, _) <- setup
+  tree <- p `submitTree` exerciseCmd parent V1.SpawnNew
+  cr <- singleChild tree >>= expectCreated
+  let decoded = toAnyTemplate (V1.Child p)
+  assertMsg "An opaque value should differ from a decoded one" $ cr.argument /= decoded
+  assertMsg "An opaque value should not compare EQ to a decoded one" $ compare cr.argument decoded /= EQ
+
+-- | package               | vetted by Canton | known to the script |
+-- |-----------------------|------------------|---------------------|
+-- | nested-unknown-main   | 1.0.0, 2.0.0     | 1.0.0               |
+-- | nested-unknown-dep    | 1.0.0            | -                   |
+-- | nested-unknown-iface2 | 1.0.0            | -                   |
+--
+-- Exercise V2.Parent SpawnNew                (downgraded to V1.Parent)
+-- └─ Create V2.NewChild                      (opaque: not in V1)
+-- Exercise V2.Parent SpawnDep                (downgraded to V1.Parent)
+-- └─ Create DepV1.DepT                       (opaque: unknown package)
+-- Exercise V2.Parent ExNewChoice             (downgraded to V1.Parent)
+-- └─ Exercise V2.Target NewChoice            (opaque: choice not in V1)
+-- Exercise V2.Parent ExIface2                (downgraded to V1.Parent)
+-- └─ Exercise V2.Target I2C via Iface2V1.I2  (opaque: unknown interface)
+showOpaqueTree : Test
+showOpaqueTree = test $ do
+  (p, parent, target) <- setup
+  tree <- p `submitTree` do
+    exerciseCmd parent V1.SpawnNew
+    exerciseCmd parent V1.SpawnDep
+    exerciseCmd parent (V1.ExNewChoice target)
+    exerciseCmd parent (V1.ExIface2 target)
+    pure ()
+  let shown = show tree
+  assertMsg ("Unexpected show output: " <> shown) $ "choice = \"NewChoice\"" `T.isInfixOf` shown
+
+-- Out of scope for #23394: pins the current behaviour.
+--
+-- | package             | vetted by Canton | known to the script |
+-- |---------------------|------------------|---------------------|
+-- | nested-unknown-main | 1.0.0, 2.0.0     | 1.0.0               |
+--
+-- With a preference for V2:
+-- Exercise V2.Target GetRet  (downgraded to V1.Target, but its result
+--                            Ret 0 (Some 1) can't be downgraded)
+topLevelResultNotDowngradable : Test
+topLevelResultNotDowngradable = test $ do
+  (p, _, target) <- setup
+  res <- tryCommands ((actAs p <> packagePreference [getPackageId "nested-unknown-main-2.0.0"]) `submit` exerciseCmd target V1.GetRet)
+  case res of
+    Left failed ->
+      assertMsg ("Unexpected failure: " <> show failed) $
+        "may not be dropped during downgrading" `T.isInfixOf` failed.errorMessage.getErrorMessage
+    Right _ -> assertFail "Expected the submission to fail"

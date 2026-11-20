@@ -767,20 +767,25 @@ class IdeLedgerClient(
         optLocation,
       ) match {
         case Right(IdeLedgerRunner.Commit(result, tx)) =>
-          val commandResultPackageIds = commands.flatMap(toCommandPackageIds(_))
+          val commandTargets = commands.flatMap(toCommandTargets(_))
           _ledger = result.newLedger
           val transaction = result.richTransaction.transaction
+          // `oTarget` is the target of the command of a top-level event, `None` for nested events
           def convEvent(
               id: NodeId,
-              oIntendedPackageId: Option[PackageId],
+              oTarget: Option[ScriptLedgerClient.CommandTarget],
           ): Option[ScriptLedgerClient.TreeEvent] =
             transaction.nodes(id) match {
               case create: Node.Create =>
-                val intendedTemplateId =
-                  oIntendedPackageId
-                    .fold(create.templateId)(intendedPackageId =>
-                      create.templateId.copy(pkg = intendedPackageId)
+                val intendedTemplateId = oTarget match {
+                  case Some(ScriptLedgerClient.TemplateTarget(pkgId)) =>
+                    create.templateId.copy(pkg = pkgId)
+                  case Some(ScriptLedgerClient.InterfaceTarget) =>
+                    throw new RuntimeException(
+                      s"Unexpected top-level create of ${create.templateId} for a command on an interface"
                     )
+                  case None => create.templateId
+                }
                 Some(
                   ScriptLedgerClient.Created(
                     intendedTemplateId,
@@ -792,11 +797,11 @@ class IdeLedgerClient(
                   )
                 )
               case exercise: Node.Exercise =>
-                val intendedTemplateId =
-                  oIntendedPackageId
-                    .fold(exercise.templateId)(intendedPackageId =>
-                      exercise.templateId.copy(pkg = intendedPackageId)
-                    )
+                val intendedTemplateId = oTarget match {
+                  case Some(ScriptLedgerClient.TemplateTarget(pkgId)) =>
+                    exercise.templateId.copy(pkg = pkgId)
+                  case Some(ScriptLedgerClient.InterfaceTarget) | None => exercise.templateId
+                }
                 val enrichedArg = failResultAsConverterException(
                   enricher.enrichChoiceArgument(
                     intendedTemplateId,
@@ -820,7 +825,7 @@ class IdeLedgerClient(
                     exercise.targetCoid,
                     exercise.choiceId,
                     enrichedArg,
-                    enrichedResult,
+                    Some(enrichedResult),
                     exercise.children.collect(Function.unlift(convEvent(_, None))).toList,
                   )
                 )
@@ -828,8 +833,8 @@ class IdeLedgerClient(
             }
           val tree = ScriptLedgerClient.TransactionTree(
             transaction.roots.toList
-              .zip(commandResultPackageIds)
-              .collect(Function.unlift { case (id, pkgId) => convEvent(id, Some(pkgId)) })
+              .zip(commandTargets)
+              .collect(Function.unlift { case (id, target) => convEvent(id, Some(target)) })
           )
           val results = ScriptLedgerClient.transactionTreeToCommandResults(tree)
           if (errorBehaviour == ScriptLedgerClient.SubmissionErrorBehaviour.MustFail)
@@ -856,13 +861,23 @@ class IdeLedgerClient(
     }
   }
 
-  // Note that CreateAndExerciseCommand gives two results, so we duplicate the package id
-  private def toCommandPackageIds(cmd: ScriptLedgerClient.CommandWithMeta): List[PackageId] =
+  // Note that CreateAndExerciseCommand gives two results, so we duplicate the target
+  private def toCommandTargets(
+      cmd: ScriptLedgerClient.CommandWithMeta
+  ): List[ScriptLedgerClient.CommandTarget] =
     cmd.command match {
       case command.CreateAndExerciseCommand(tmplRef, _, _, _) =>
-        List(tmplRef.assertToTypeConId.packageId, tmplRef.assertToTypeConId.packageId)
+        List(
+          ScriptLedgerClient.TemplateTarget(tmplRef.assertToTypeConId.packageId),
+          ScriptLedgerClient.TemplateTarget(tmplRef.assertToTypeConId.packageId),
+        )
+      case command.ExerciseCommand(typeRef, _, _, _)
+          if originalCompiledPackages.pkgInterface
+            .lookupInterface(typeRef.assertToTypeConId)
+            .isRight =>
+        List(ScriptLedgerClient.InterfaceTarget)
       case cmd =>
-        List(cmd.typeRef.assertToTypeConId.packageId)
+        List(ScriptLedgerClient.TemplateTarget(cmd.typeRef.assertToTypeConId.packageId))
     }
 
   override def allocateParty(partyIdHint: String)(implicit

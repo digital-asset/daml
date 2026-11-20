@@ -70,11 +70,12 @@ class UpgradeTestUtil(upgradeTestLibDar: Path)(implicit executor: ExecutionConte
         ("PackageIds", packageIdsModuleSource),
       ),
       deps = Seq.empty,
-      dataDeps = Seq(DataDep(upgradeTestLibDar)) :++ dars.map { case (dar, _) =>
-        DataDep(
-          path = dar.path,
-          prefix = Some((dar.versionedName, s"V${dar.version}")),
-        )
+      dataDeps = Seq(DataDep(upgradeTestLibDar)) :++ dars.collect {
+        case (dar, _) if !testCase.hiddenUnitIds(dar.versionedName) =>
+          DataDep(
+            path = dar.path,
+            prefix = Some((dar.versionedName, s"V${dar.version}")),
+          )
       },
       opts = Seq.empty,
       tmpDir = Some(testCasePkg),
@@ -94,6 +95,9 @@ object UpgradeTestUtil {
       pkgDefs: Seq[PackageDefinition],
   ) {
     private val unitIdMap = pkgDefs.map(pd => (s"${pd.name}-${pd.version}.0.0", pd)).toMap
+
+    val hiddenUnitIds: Set[String] =
+      unitIdMap.collect { case (unitId, pd) if pd.hidden => unitId }.toSet
 
     private val sortedPkgDefs = {
       val res = mutable.ListBuffer[(PackageDefinition, String)]()
@@ -213,6 +217,7 @@ object UpgradeTestUtil {
       lfVersion: LanguageVersion,
       depends: Seq[String], // List of unit ids of dependencies
       modules: Map[String, String],
+      hidden: Boolean, // Uploaded to the ledger but not made available to the script
   ) {
     private[UpgradeTestUtil] def build(tmpDir: Path, dataDeps: Seq[Dar] = Seq[Dar]()): Dar = {
       assertBuildDar(
@@ -236,6 +241,7 @@ object UpgradeTestUtil {
         versions: Int,
         lfVersion: Option[String],
         depends: String,
+        hiddenVersions: List[Int],
     )
 
     // TODO[SW] Consider another attempt at using io.circe.generic.auto._
@@ -249,8 +255,12 @@ object UpgradeTestUtil {
             versions <- c.downField("versions").as[Int]
             lfVersion <- c.downField("lf-version").as[Option[String]]
             depends <- c.downField("depends").as[Option[String]].map(_.getOrElse(""))
+            hiddenVersions <- c
+              .downField("hidden-versions")
+              .as[Option[List[Int]]]
+              .map(_.getOrElse(List.empty))
           } yield {
-            PackageComment(name, versions, lfVersion, depends)
+            PackageComment(name, versions, lfVersion, depends, hiddenVersions)
           }
       }
 
@@ -317,6 +327,11 @@ object UpgradeTestUtil {
       packageComments.flatMap { c =>
         val versionedLfVersion = c.lfVersion.map(readVersionedLines(_))
         val versionedDepends = readVersionedLines(c.depends)
+        c.hiddenVersions.filterNot(v => 1 <= v && v <= c.versions).foreach { v =>
+          throw BuildError(
+            s"Package ${c.name} has ${c.versions} versions, but hidden-versions contains $v"
+          )
+        }
         (1 to c.versions).map { version =>
           PackageDefinition(
             name = c.name,
@@ -332,6 +347,7 @@ object UpgradeTestUtil {
               .map { case (modName, modDefs) =>
                 assertUnique(c.name, modName, modDefs)
               },
+            hidden = c.hiddenVersions.contains(version),
           )
         }
       }
