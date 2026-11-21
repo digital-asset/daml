@@ -60,25 +60,7 @@
     }
   ],
   "namedVersions" : {
-    "stagingLfVersion" : {
-      "major" : 2,
-      "minor" : {
-        "Staging" : {
-          "version" : 5,
-          "revision" : 1
-        }
-      }
-    },
-    "stagingLfVersionSDK" : {
-      "major" : 2,
-      "minor" : {
-        "Staging" : {
-          "version" : 5,
-          "revision" : 1
-        }
-      }
-    },
-    "latestStableLfVersion" : {
+    "defaultLfVersion" : {
       "major" : 2,
       "minor" : {
         "Stable" : {
@@ -94,11 +76,20 @@
         }
       }
     },
-    "defaultLfVersion" : {
+    "latestStableLfVersion" : {
       "major" : 2,
       "minor" : {
         "Stable" : {
-          "version" : 3
+          "version" : 4
+        }
+      }
+    },
+    "stagingLfVersion" : {
+      "major" : 2,
+      "minor" : {
+        "Staging" : {
+          "version" : 5,
+          "revision" : 1
         }
       }
     }

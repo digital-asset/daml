@@ -8,7 +8,7 @@
   "com.fasterxml.jackson.core:jackson-databind" : "2.22.4",
   "com.google.api.grpc:proto-google-common-protos" : "2.59.2",
   "com.google.code.findbugs:jsr305" : "3.0.2",
-  "com.google.guava:guava" : "33.3.0-jre",
+  "com.google.guava:guava" : "33.8.0-jre",
   "com.google.protobuf:protobuf-java" : "4.35.1",
   "com.google.protobuf:protobuf-java-util" : "4.35.1",
   "com.lihaoyi:sourcecode_2.13" : "0.3.0",
