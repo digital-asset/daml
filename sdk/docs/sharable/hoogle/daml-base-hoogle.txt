@@ -2528,7 +2528,7 @@ maximum :: (Foldable t, Ord a) => t a -> a
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Foldable.html#function-da-foldable-mapa-78745
 mapA_ :: (Foldable t, Applicative f) => (a -> f b) -> t a -> f ()
 
--- | 'for_' is 'mapA_' with its arguments flipped. For a version
+-- | 'forA_' is 'mapA_' with its arguments flipped. For a version
 --   that doesn't ignore the results see 'DA.Traversable.forA'.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Foldable.html#function-da-foldable-fora-54422
 forA_ :: (Foldable t, Applicative f) => t a -> (a -> f b) -> f ()

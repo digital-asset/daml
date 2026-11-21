@@ -156,7 +156,7 @@ Functions
 `forA_ <function-da-foldable-fora-54422_>`_
   \: (`Foldable <class-da-foldable-foldable-25994_>`_ t, :ref:`Applicative <class-da-internal-prelude-applicative-9257>` f) \=\> t a \-\> (a \-\> f b) \-\> f ()
 
-  'for\_' is 'mapA\_' with its arguments flipped\. For a version
+  'forA\_' is 'mapA\_' with its arguments flipped\. For a version
   that doesn't ignore the results see 'DA\.Traversable\.forA'\.
 
 .. _function-da-foldable-form-34370:
