@@ -1,0 +1,18 @@
+
+-- | My module
+module DamlDocsWarnings 
+  {-# WARNING ["Module warning line 1", "MyData warning line 2"] #-}
+  where
+
+{-# WARNING MyData ["MyData warning line 1", "MyData warning line 2"] #-}
+-- | My data
+data MyData = MyData
+
+{-# DEPRECATED MyData2 ["MyData2 deprecated line 1", "MyData deprecated line 2"] #-}
+-- | My data2
+data MyData2 = MyData2
+
+{-# DEPRECATED myFunc ["myFunc deprecated line 1", "myFunc deprecated line 2"] #-}
+-- | my function
+myFunc : Int -> Int
+myFunc = identity

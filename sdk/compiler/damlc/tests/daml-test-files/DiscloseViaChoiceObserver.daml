@@ -1,0 +1,40 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module DiscloseViaChoiceObserver where
+
+import Daml.Script
+
+-- @SINCE-LF 2.1
+
+-- This example demonstrates the canonical use of choice-observers to achieve disclosure.
+
+template Secret with
+    owner: Party
+    text: Text
+  where
+    signatory owner
+    nonconsuming choice DiscloseTo: () with
+        receiver: Party
+      observer receiver
+      controller owner
+      do pure ()
+    nonconsuming choice Reveal: Text with
+        receiver: Party
+      controller receiver
+      do pure text
+
+-- @ERROR range=29:1-29:5; Attempt to fetch or exercise a contract not visible to the reading parties.
+test : Script ()
+test = script do
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
+    -- (1) Alice creates a secret
+    id <- submit alice do createCmd Secret with owner = alice; text = "s3cr3t"
+    -- (2) Bob cannot see the secret
+    submitMustFail bob do exerciseCmd id Reveal with receiver = bob
+    -- (3) Alice allows the Secret to be seen by Bob
+    submit alice do exerciseCmd id DiscloseTo with receiver = bob
+    -- (4) Bob still can see the secret
+    submit bob do exerciseCmd id Reveal with receiver = bob
+    pure ()

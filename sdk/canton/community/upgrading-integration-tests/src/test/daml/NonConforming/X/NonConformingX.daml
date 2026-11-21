@@ -1,0 +1,28 @@
+{-# LANGUAGE CPP #-}
+
+module NonConformingX where
+
+import NonConformingV1.NonConforming as N1
+import NonConformingV2.NonConforming as N2
+
+template Main with
+  bank: Party
+ where
+  signatory bank
+
+  nonconsuming choice Main_Get : (Party, Party)
+    with
+      bankTxV1Cid: ContractId N1.BankTransfer
+      bankTxV2Cid: ContractId N2.BankTransfer
+    controller bank
+    do
+
+      fetcherV1Cid <- create $ N1.FetchTransfer bank
+      fetcherV2Cid <- create $ N2.FetchTransfer bank
+      resultV1 <- exercise fetcherV1Cid $ N1.FetchTransfer_Get bankTxV1Cid
+      resultV2 <- exercise fetcherV2Cid $ N2.FetchTransfer_Get bankTxV2Cid
+
+      pure (resultV1.payee, resultV2.payee)
+
+
+

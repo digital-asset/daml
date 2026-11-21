@@ -1,0 +1,34 @@
+diff --git a/internal/linker/index.js b/internal/linker/index.js
+index d953398..d42f0ea 100755
+--- a/internal/linker/index.js
++++ b/internal/linker/index.js
+@@ -279,7 +279,7 @@ function main(args, runfiles) {
+             throw new Error('requires one argument: modulesManifest path');
+         const [modulesManifest] = args;
+         log_verbose('manifest file:', modulesManifest);
+-        let { workspace, bin, roots, module_sets } = JSON.parse(fs.readFileSync(modulesManifest));
++        let { package_path, workspace, bin, roots, module_sets } = JSON.parse(fs.readFileSync(modulesManifest));
+         log_verbose('manifest contents:', JSON.stringify({ workspace, bin, roots, module_sets }, null, 2));
+         roots = roots || {};
+         module_sets = module_sets || {};
+@@ -342,7 +342,7 @@ function main(args, runfiles) {
+                     primaryNodeModules = binNodeModules;
+                 }
+                 if (!isBazelRun) {
+-                    const execrootNodeModules = path.posix.join(packagePath, 'node_modules');
++                    const execrootNodeModules = path.posix.join(package_path, 'node_modules');
+                     yield mkdirp(path.dirname(execrootNodeModules));
+                     yield symlinkWithUnlink(primaryNodeModules, execrootNodeModules);
+                 }
+diff --git a/internal/linker/link_node_modules.bzl b/internal/linker/link_node_modules.bzl
+index c04e109..3072ca6 100755
+--- a/internal/linker/link_node_modules.bzl
++++ b/internal/linker/link_node_modules.bzl
+@@ -159,6 +159,7 @@ def write_node_modules_manifest(ctx, extra_data = [], mnemonic = None, link_work
+         prefix += "_%s" % mnemonic
+     modules_manifest = ctx.actions.declare_file("_%s.module_mappings.json" % prefix)
+     content = {
++        "package_path": getattr(ctx.attr, "generator_location", []).split("/BUILD")[0],
+         "bin": ctx.bin_dir.path,
+         "module_sets": module_sets,
+         "roots": node_modules_roots,

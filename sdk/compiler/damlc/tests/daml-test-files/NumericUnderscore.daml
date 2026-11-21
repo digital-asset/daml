@@ -1,0 +1,8 @@
+
+module NumericUnderscore where
+
+works : Int
+works = 10_000_000 
+
+doesntBreak : Int
+doesntBreak = 10000000

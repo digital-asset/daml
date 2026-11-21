@@ -1,0 +1,96 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- TODO[SW]: Add some kind of warning here saying this _only_ works for IdeLedgerClient
+
+module Daml.Script.Internal.Questions.Packages where
+
+import Daml.Script.Internal.LowLevel
+import Daml.Script.Internal.Questions.PartyManagement (ParticipantName (..))
+import DA.Stack
+
+-- | HIDE
+data VetPackages = VetPackages with
+  packages : [PackageName]
+  participant : Optional Text
+-- | HIDE
+instance IsQuestion VetPackages () where command = "VetPackages"
+
+-- | HIDE
+data UnvetPackages = UnvetPackages with
+  packages : [PackageName]
+  participant : Optional Text
+-- | HIDE
+instance IsQuestion UnvetPackages () where command = "UnvetPackages"
+
+-- | HIDE
+data ListVettedPackages = ListVettedPackages {}
+-- | HIDE
+instance IsQuestion ListVettedPackages [PackageName] where command = "ListVettedPackages"
+
+-- | HIDE
+data ListAllPackages = ListAllPackages {}
+-- | HIDE
+instance IsQuestion ListAllPackages [PackageName] where command = "ListAllPackages"
+
+-- | MOVE Daml.Script.Internal
+-- Used for vetting and unvetting packages
+data PackageName = PackageName
+  with
+    name : Text
+    version : Text
+  deriving (Eq, Ord)
+
+-- | MOVE Daml.Script.Internal
+instance Show PackageName where
+  show (PackageName name version) = name <> "-" <> version
+
+-- | MOVE Daml.Script.Internal
+-- Vet a set of packages on all participants.
+-- Note that the Admin API port must be provided when using this with a Canton Ledger
+-- Use ``--admin-port`` with the `daml script` CLI tool.
+vetPackages : HasCallStack => [PackageName] -> Script ()
+vetPackages packages = vetPackagesInternal packages None
+
+-- | MOVE Daml.Script.Internal
+-- Vet a set of packages on a single participant.
+-- Note that the Admin API port must be provided when using this with a Canton Ledger
+-- Use ``--admin-port`` with the `daml script` CLI tool.
+vetPackagesOnParticipant : HasCallStack => [PackageName] -> ParticipantName -> Script ()
+vetPackagesOnParticipant packages participant = vetPackagesInternal packages (Some participant)
+
+-- | MOVE Daml.Script.Internal
+-- Unvet a set of packages on all participants.
+-- Note that the Admin API port must be provided when using this with a Canton Ledger
+-- Use ``--admin-port`` with the `daml script` CLI tool.
+unvetPackages : HasCallStack => [PackageName] -> Script ()
+unvetPackages packages = unvetPackagesInternal packages None
+
+-- | MOVE Daml.Script.Internal
+-- Unvet a set of packages on a single participant.
+-- Note that the Admin API port must be provided when using this with a Canton Ledger
+-- Use ``--admin-port`` with the `daml script` CLI tool.
+unvetPackagesOnParticipant : HasCallStack => [PackageName] -> ParticipantName -> Script ()
+unvetPackagesOnParticipant packages participant = unvetPackagesInternal packages (Some participant)
+
+-- | HIDE
+vetPackagesInternal : HasCallStack => [PackageName] -> Optional ParticipantName -> Script ()
+vetPackagesInternal packages mParticipantName = lift $ VetPackages packages (participantName <$> mParticipantName)
+
+-- | HIDE
+unvetPackagesInternal : HasCallStack => [PackageName] -> Optional ParticipantName -> Script ()
+unvetPackagesInternal packages mParticipantName = lift $ UnvetPackages packages (participantName <$> mParticipantName)
+
+-- | MOVE Daml.Script.Internal
+-- Lists the vetted packages on the default participant
+-- Note that the Admin API port must be provided when using this with a Canton Ledger
+-- Use ``--admin-port`` with the `daml script` CLI tool.
+listVettedPackages : HasCallStack => Script [PackageName]
+listVettedPackages = lift ListVettedPackages
+
+-- | MOVE Daml.Script.Internal
+-- Lists all packages (vetted and unvetted) on the default participant
+-- Note that the Admin API port must be provided when using this with a Canton Ledger
+-- Use ``--admin-port`` with the `daml script` CLI tool.
+listAllPackages : HasCallStack => Script [PackageName]
+listAllPackages = lift ListAllPackages

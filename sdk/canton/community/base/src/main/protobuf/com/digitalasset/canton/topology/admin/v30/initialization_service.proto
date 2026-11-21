@@ -1,0 +1,67 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.topology.admin.v30;
+
+import "com/digitalasset/canton/protocol/v30/topology.proto";
+import "com/digitalasset/canton/topology/admin/v30/common.proto";
+
+/**
+ * The node identity initialization service
+ */
+service IdentityInitializationService {
+  /**
+   * Initialize the node with the unique identifier (can and must be done once)
+   *
+   * When a node starts for the first time, we need to bind it
+   * to a globally unique stable identifier before we can continue with the
+   * initialization procedure.
+   *
+   * This method is only used once during initialization.
+   */
+  rpc InitId(InitIdRequest) returns (InitIdResponse);
+
+  /**
+   * Returns the id of the node (or empty if not initialized)
+   */
+  rpc GetId(GetIdRequest) returns (GetIdResponse);
+
+  /**
+   * Returns the current time of the node (used for testing with static time)
+   */
+  rpc CurrentTime(CurrentTimeRequest) returns (CurrentTimeResponse);
+}
+
+message InitIdRequest {
+  // The identifier of this node
+  string identifier = 1;
+  // The namespace of this node
+  // If empty, then we use the namespace of the first certificate. If both are set, then we assert
+  // that the namespace matches the namespace of the first certificate.
+  string namespace = 2;
+  // Optional set of namespace_delegations for this node (in case we are using external root keys)
+  repeated com.digitalasset.canton.protocol.v30.SignedTopologyTransaction namespace_delegations = 3;
+}
+
+message InitIdResponse {}
+
+message GetIdResponse {
+  bool initialized = 1;
+  string unique_identifier = 2;
+}
+
+message GetOnboardingTransactionsRequest {}
+
+message GetOnboardingTransactionsResponse {
+  com.digitalasset.canton.topology.admin.v30.TopologyTransactions transactions = 1;
+}
+
+message GetIdRequest {}
+
+message CurrentTimeRequest {}
+
+message CurrentTimeResponse {
+  int64 current_time = 1;
+}

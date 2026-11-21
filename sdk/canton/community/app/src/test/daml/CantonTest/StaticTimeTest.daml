@@ -1,0 +1,35 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module StaticTimeTest where
+
+import Daml.Script
+import DA.Time
+
+template Pass
+  with
+    id : Text
+    owner: Party
+    when : Time
+  where
+    signatory owner
+
+    choice PassTime: ()
+      controller owner
+      do
+        tm <- getTime
+        assert (tm > when)
+        return ()
+
+    choice GetTime: Time
+      controller owner
+      do
+        tm <- getTime
+        return tm
+
+main = script do
+  alice <- allocateParty "Alice"
+  tm <- getTime
+  passId <- submit alice $ createCmd Pass with id = "1", owner = alice, when = (addRelTime tm (hours 12))
+  _ <- passTime (days 1)
+  submit alice $ exerciseCmd passId PassTime

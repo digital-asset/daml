@@ -1,0 +1,86 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE InstanceSigs #-}
+
+module Daml.Script.Internal.Questions.Exceptions where
+
+import DA.Exception
+import DA.Optional
+import Daml.Script.Internal.LowLevel
+import DA.Fail
+import DA.Stack
+
+-- | HIDE
+data Catch = Catch with
+  act : () -> LedgerValue
+  -- Dummy value needed to ensure this record isn't treated as an old-style typeclass by data-deps
+  -- (defined as any record where all definitions are () -> X)
+  dummy : ()
+-- | HIDE
+instance IsQuestion Catch (Either AnyException x) where command = "Catch"
+
+-- | MOVE Daml.Script
+-- Named version of the `try catch` behaviour of Daml-Script.
+-- Note that this is no more powerful than `try catch` in daml-script, and will not catch exceptions in submissions.
+-- (Use `trySubmit` for this)
+-- Input computation is deferred to catch pure exceptions
+tryToEither : forall t. (() -> Script t) -> Script (Either AnyException t)
+tryToEither act = lift Catch with
+  act = \() -> toLedgerValue $ act ()
+  dummy = ()
+
+-- | HIDE
+instance ActionCatch Script where
+  _tryCatch : forall t. (() -> Script t) -> (AnyException -> Optional (Script t)) -> Script t
+  _tryCatch act handle = do
+    res <- tryToEither act
+    case res of
+      Right t -> pure t
+      Left e -> fromOptional (throwAnyException e) $ handle e
+
+-- TODO: Throw discards the stacktrace, such that it can't be passed back to `tryToEither` and provided when it rethrows
+-- Consider reworking how the ghc stack traces are passed around in this file
+-- | HIDE
+data Throw = Throw with
+  exc: AnyException
+-- | HIDE
+instance IsQuestion Throw t where command = "Throw"
+
+-- | HIDE
+instance ActionThrow Script where
+  throw e = throwAnyException $ toAnyException e
+
+-- | MOVE Daml.Script.Internal
+-- Throws an ``AnyException``, note that this function discards the stacktrace
+throwAnyException : AnyException -> Script t
+throwAnyException = lift . Throw
+
+-- | HIDE
+instance CanAssert Script where
+  assertFail m = throw (AssertionFailed m)
+
+-- | HIDE
+data FailWithStatus = FailWithStatus with
+  status: FailureStatus
+-- | HIDE
+instance IsQuestion FailWithStatus t where command = "FailWithStatus"
+
+-- | HIDE
+instance ActionFailWithStatus Script where
+  failWithStatus = lift . FailWithStatus
+
+-- | HIDE
+data TryFailureStatus = TryFailureStatus with
+  act : () -> LedgerValue
+  dummy : ()
+-- | HIDE
+instance IsQuestion TryFailureStatus (Either FailureStatus x) where command = "TryFailureStatus"
+
+-- | MOVE Daml.Script
+-- Runs a script for a result. If it fails either by Daml Exceptions or `failWithStatus`, returns the
+-- `FailureStatus` that a Canton Ledger would return.
+tryFailureStatus : (HasCallStack => Script a) -> Script (Either FailureStatus a)
+tryFailureStatus act = lift TryFailureStatus with
+  act = \() -> toLedgerValue act
+  dummy = ()

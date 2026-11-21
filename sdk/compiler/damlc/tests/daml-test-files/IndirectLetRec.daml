@@ -1,0 +1,44 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Regression test for issue #7953 : local letrec introduced by
+-- GHC isn't lifted out because it happens under a lambda.
+module IndirectLetRec where
+
+class C a where
+class D a where
+type S a = (C a, D a)
+
+f : S a => a -> a
+f = identity
+
+-- type signature omitted on purpose (otherwise the problem goes away!)
+y a = y (f a)
+
+-- Core representation introduces a letrec inside a let:
+--
+-- y : forall t1 t2. (C t1, D t1) => t1 -> t2
+-- [GblId, Arity=2]
+-- y = \ (@ t_a10Q)
+--       (@ t1_a10S)
+--       ($dC_a10Z : C t_a10Q)
+--       ($dD_a110 : D t_a10Q) ->
+--       let {
+--         $d(%,%)_a10U : S t_a10Q
+--         [LclId]
+--         $d(%,%)_a10U = ($dC_a10Z, $dD_a110) } in
+--       letrec {
+--         y1_a10K [Occ=LoopBreaker] : t_a10Q -> t1_a10S
+--         [LclId, Arity=1]
+--         y1_a10K
+--           = \ (a_aiv : t_a10Q) ->
+--               src<daml/Main2.daml:14:1-13>
+--               case a_aiv of a1_XiE { __DEFAULT ->
+--               src<daml/Main2.daml:14:7-13>
+--               y1_a10K
+--                 (src<daml/Main2.daml:14:9-13>
+--                  f @ t_a10Q $d(%,%)_a10U (src<daml/Main2.daml:14:12> a1_XiE))
+--               }; } in
+--       y1_a10K
+--
+--

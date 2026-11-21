@@ -1,0 +1,19 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- | Check that local type signatures in a sequential let
+-- is propagated to the correct binding.
+--
+-- NB: The SequentialLetSig* tests cannot be combined because
+-- they test/raise errors at different GHC phases.
+module SequentialLetSigWrongType where
+
+-- @ERROR range=17:13-17:20; Couldn't match expected type 'Int' with actual type 'Text'
+wrongType : ()
+wrongType =
+    let x, y, z, w : Int
+        x = 10
+        z = 3
+        y = "hello"
+        w = 10
+    in ()

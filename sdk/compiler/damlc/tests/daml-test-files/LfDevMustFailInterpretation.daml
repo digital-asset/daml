@@ -1,0 +1,38 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+
+module LfDevMustFailInterpretation where
+
+import Daml.Script
+
+template Keyed
+  with
+    p : Party
+    v : Int
+  where
+    signatory p
+    key (p, v) : (Party, Int)
+    maintainer key._1
+
+template Helper
+  with
+    p : Party
+  where
+    signatory p
+    choice C : ContractId Keyed
+      controller p
+      do create (Keyed p 0)
+         abort ""
+
+-- @LEDGER run LfDevMustFailInterpretation.EXPECTED.ledger
+run = do
+  p <- allocateParty "p"
+  submit p $ createCmd (Keyed p 0)
+  -- This fails during interpretation so it never hits
+  -- the duplicate key error during commit. See
+  -- LfDevMustFailCommit.daml which should produce the same
+  -- contract id for the following submit but fails during commit.
+  submitMustFail p $ createAndExerciseCmd (Helper p) C
+  submit p $ createCmd (Keyed p 1)

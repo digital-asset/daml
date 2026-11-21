@@ -1,0 +1,44 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module TransientContracts where
+
+import Daml.Script
+
+import qualified DA.Optional as O
+
+template TransientContractsTest
+  with
+    sig: Party
+    obs: Optional Party
+  where
+    signatory sig
+    observer (O.optionalToList obs): [Party]
+
+    choice EntryPoint: ()
+      with
+        other: ContractId TransientContractsTest
+      controller sig
+        do
+          transient1 <- create TransientContractsTest with sig = sig; obs = None
+          transient2 <- exercise other $ Subchoice with toArchive = transient1
+          exercise transient2 $ Archive
+          pure ()
+
+    choice Subchoice: ContractId TransientContractsTest
+      with
+        toArchive: ContractId TransientContractsTest
+      controller sig
+        do
+          exercise toArchive $ Archive
+          create TransientContractsTest with sig = sig; obs = None
+
+transientViaDifferentViews = script do 
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  aliceAndBob <- submit alice $ createCmd TransientContractsTest with sig = alice; obs = Some bob
+  onlyAlice <- submit alice $ createCmd TransientContractsTest with sig = alice; obs = None
+  submit alice $ exerciseCmd onlyAlice $ EntryPoint with other = aliceAndBob
+
+  pure ()

@@ -1,0 +1,73 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module Bounds where
+
+import Daml.Script
+import DA.Assert
+import qualified DA.Numeric as Numeric
+import qualified DA.Date as Date
+import qualified DA.Time as Time
+
+
+-- @ERROR range=14:1-14:27; ArithmeticError while evaluating (ADD_INT64 9223372036854775807 1)
+maxBoundIntIsTheBiggestInt = script do
+  pure $ maxBound - 1
+  pure $ maxBound + 1
+
+-- @ERROR range=19:1-19:28; ArithmeticError while evaluating (SUB_INT64 -9223372036854775808 1)
+minBoundIntIsTheSmallestInt = script do
+  pure $ minBound + 1
+  pure $ minBound - 1
+
+computeEpsilon : NumericScale n => Numeric n -> Numeric n
+computeEpsilon m =
+    if (Numeric.shift n) == (0.0: Numeric 0)  then m
+    else computeEpsilon n
+  where n = Numeric.div m (2.0: Numeric 0)
+
+epsilon0IsTheSmallestStrictlyPositiveNumeric0 = script do
+  computeEpsilon @0 1.0 === Numeric.epsilon @0
+
+epsilon37IsTheSmallestStrictlyPositiveNumeric37 = script do
+  computeEpsilon @37 1.0 === Numeric.epsilon @37
+
+-- @ERROR range=36:1-36:37; ArithmeticError while evaluating (ADD_NUMERIC 99999999999999999999999999999999999999.0 1.0)
+maxBoundNumeric0IsTheBiggestNumeric0 = script do
+  pure $ maxBound @(Numeric 0) - Numeric.epsilon @0
+  pure $ maxBound @(Numeric 0) + Numeric.epsilon @0
+
+-- @ERROR range=41:1-41:38; ArithmeticError while evaluating (SUB_NUMERIC -99999999999999999999999999999999999999.0 1.0)
+minBoundNumeric0IsTheSmallestNumeric0 = script do
+  pure $ minBound @(Numeric 0) + Numeric.epsilon @0
+  pure $ minBound @(Numeric 0) - Numeric.epsilon @0
+
+-- @ERROR range=46:1-46:39; ArithmeticError while evaluating (ADD_NUMERIC 9.9999999999999999999999999999999999999 0.0000000000000000000000000000000000001)
+maxBoundNumeric37IsTheBiggestNumeric37 = script do
+  pure $ maxBound @(Numeric 37) - Numeric.epsilon @37
+  pure $ maxBound @(Numeric 37) + Numeric.epsilon @37
+
+-- @ERROR range=51:1-51:40; ArithmeticError while evaluating (SUB_NUMERIC -9.9999999999999999999999999999999999999 0.0000000000000000000000000000000000001)
+minBoundNumeric37IsTheSmallestNumeric37 = script do
+  pure $ minBound @(Numeric 37) + Numeric.epsilon @37
+  pure $ minBound @(Numeric 37) - Numeric.epsilon @37
+
+-- @ERROR range=56:1-56:29; ArithmeticError while evaluating (UNIX_DAYS_TO_DATE 2932897)
+maxBoundDateIsTheBiggestDate = script do
+  pure $ Date.subtractDays maxBound 1
+  pure $ Date.addDays maxBound 1
+
+-- @ERROR range=61:1-61:30; ArithmeticError while evaluating (UNIX_DAYS_TO_DATE -719163)
+minBoundDateIsTheSmallestDate = script do
+  pure $ Date.addDays minBound 1
+  pure $ Date.subtractDays minBound 1
+
+-- @ERROR range=66:1-66:29; ArithmeticError while evaluating (UNIX_MICROSECONDS_TO_TIMESTAMP 253402300800000000)
+maxBoundTimeIsTheBiggestTime = script do
+  pure $ Time.addRelTime maxBound (Time.microseconds (-1))
+  pure $ Time.addRelTime maxBound (Time.microseconds 1)
+
+-- @ERROR range=71:1-71:30; ArithmeticError while evaluating (UNIX_MICROSECONDS_TO_TIMESTAMP -62135596800000001)
+minBoundTimeIsTheSmallestTime = script do
+  pure $ Time.addRelTime minBound (Time.microseconds 1)
+  pure $ Time.addRelTime minBound (Time.microseconds (-1))

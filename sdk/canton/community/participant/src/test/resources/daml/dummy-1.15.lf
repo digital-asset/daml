@@ -1,0 +1,14 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+// From daml main repo:
+// - To generate the dar (on SDK main-2.x)
+//     bazel run  daml-lf/encoder:encoder_binary -- /tmp/dummy-1.15.lf --skip-validation  --target 1.15 --output /tmp/dummy-1.15.dar
+// - To inspect the generated package
+//     bazel run damlc -- inspect /tmp/dummy-1.15.dar
+
+metadata ( 'incompatibleUpgrade' : '1.0.0' )
+
+module Mod {
+
+}

@@ -1,0 +1,29 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module TrailingNones where
+
+import TrailingNonesIface
+
+data RecordWithOptional = RecordWithOptional with
+    field1 : Text
+    field2 : Optional Text
+  deriving (Eq, Show)
+
+template TrailingNones
+  with
+    owner: Party
+    nonOpt: Text
+    opt: Optional Text
+  where
+    signatory owner
+
+    choice ExerciseChoice: RecordWithOptional
+      with
+        nonOptArg: Text
+        optArg: Optional Text
+      controller owner
+      do return (RecordWithOptional nonOptArg optArg)
+
+    interface instance TrailingNonesIface for TrailingNones where
+      view = TrailingNonesView with nonOpt = nonOpt, opt = opt

@@ -1,0 +1,4 @@
+-- Test that we don't get a warning when using an unproblematic extension.
+{-# LANGUAGE PartialTypeSignatures #-}
+
+module GoodExtensionPragma where

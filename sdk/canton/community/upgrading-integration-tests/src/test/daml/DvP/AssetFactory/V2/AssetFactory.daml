@@ -1,0 +1,47 @@
+module AssetFactory where
+
+import qualified DvpAssetsV1.Assets
+import qualified DvpAssetsV2.Assets
+import DA.TextMap as TM
+
+addMetaTag : Optional Text -> Optional DvpAssetsV2.Assets.Meta
+addMetaTag None = None
+addMetaTag (Some tag) = Some (DvpAssetsV2.Assets.Meta with meta = TM.singleton "tag" tag)
+
+template AssetFactory
+  with
+    issuer: Party
+    tag: Optional Text -- Introduced in V2
+  where
+    signatory issuer
+
+    nonconsuming choice AssetFactory_IssueAssets: ()
+      with
+        iouOwner: Party
+        iouAmount: Decimal
+        iouVersion: Int
+        shareOwner: Party
+        shareCompany: Text
+        shareVersion: Int
+      controller issuer
+        do
+          case iouVersion of
+            1 ->
+              do
+                create DvpAssetsV1.Assets.Iou with issuer = issuer, owner = iouOwner, amount = iouAmount
+                pure ()
+            2 ->
+              do
+                create DvpAssetsV2.Assets.Iou with issuer = issuer, owner = iouOwner, amount = iouAmount, meta = addMetaTag tag
+                pure ()
+            _ -> abort "Unsupported"
+          case shareVersion of
+            1 ->
+              do
+                create DvpAssetsV1.Assets.Share with registry = issuer, holder = shareOwner, company = shareCompany
+                pure ()
+            2 ->
+              do
+                create DvpAssetsV2.Assets.Share with registry = issuer, holder = shareOwner, company = shareCompany, meta = addMetaTag tag
+                pure ()
+            _ -> abort "Unsupported"

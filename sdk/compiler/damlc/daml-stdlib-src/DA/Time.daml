@@ -1,0 +1,116 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
+-- | This module provides a set of functions to manipulate Time values.
+-- The `Time` type represents a specific datetime in UTC,
+-- for example `time (date 2007 Apr 5) 14 30 05`.
+-- The bounds for Time are 0001-01-01T00:00:00.000000Z and
+-- 9999-12-31T23:59:59.999999Z.
+module DA.Time
+  ( RelTime
+  , addRelTime
+  , subTime
+  , wholeDays
+  , days
+  , hours
+  , minutes
+  , seconds
+  , milliseconds
+  , microseconds
+  , time
+  , convertRelTimeToMicroseconds
+  , convertMicrosecondsToRelTime
+  , isLedgerTimeLT
+  , isLedgerTimeLE
+  , isLedgerTimeGT
+  , isLedgerTimeGE
+  ) where
+
+import GHC.Types (primitive)
+import DA.Time.Types hiding (microseconds)
+import DA.Internal.Time
+
+-- | Adjusts `Time` with given time offset.
+addRelTime : Time -> RelTime -> Time
+addRelTime d rt =
+    let dt = timeToMicrosecondsSinceEpoch d
+    in microsecondsSinceEpochToTime (dt + convertRelTimeToMicroseconds rt)
+
+-- | Returns time offset between two given instants.
+subTime : Time -> Time -> RelTime
+subTime d1 d2 =
+    let t1 = timeToMicrosecondsSinceEpoch d1
+        t2 = timeToMicrosecondsSinceEpoch d2
+    in convertMicrosecondsToRelTime (t1 - t2)
+
+-- | Returns the number of whole days in a time offset. Fraction of time is rounded towards zero.
+wholeDays : RelTime -> Int
+wholeDays rt = convertRelTimeToMicroseconds rt / microsecondsPerDay
+
+-- | A number of days in relative time.
+days : Int -> RelTime
+days x = hours (24 * x)
+
+-- | A number of hours in relative time.
+hours : Int -> RelTime
+hours x = minutes (60 * x)
+
+-- | A number of minutes in relative time.
+minutes : Int -> RelTime
+minutes x = seconds (60 * x)
+
+-- | A number of seconds in relative time.
+seconds : Int -> RelTime
+seconds x = convertMicrosecondsToRelTime (1000000 * x)
+
+-- | A number of milliseconds in relative time.
+milliseconds : Int -> RelTime
+milliseconds x = convertMicrosecondsToRelTime (1000 * x)
+
+-- | A number of microseconds in relative time.
+microseconds : Int -> RelTime
+microseconds x = convertMicrosecondsToRelTime x
+
+-- | Convert RelTime to microseconds
+-- Use higher level functions instead of the internal microseconds
+convertRelTimeToMicroseconds : RelTime -> Int
+convertRelTimeToMicroseconds (RelTime msec) = msec
+
+-- | Convert microseconds to RelTime
+-- Use higher level functions instead of the internal microseconds
+convertMicrosecondsToRelTime : Int -> RelTime
+convertMicrosecondsToRelTime msec = RelTime msec
+
+deriving instance Eq RelTime
+deriving instance Ord RelTime
+deriving instance Show RelTime
+deriving instance Additive RelTime
+deriving instance Signed RelTime
+deriving instance Bounded RelTime
+
+-- | The minBound corresponds to 0001-01-01T00:00:00.000000Z,
+-- while the maxBound corresponds to 9999-12-31T23:59:59.999999Z.
+instance Bounded Time where
+    minBound = microsecondsSinceEpochToTime (-62135596800000000)
+    maxBound = microsecondsSinceEpochToTime 253402300799999999
+
+-- | True iff the ledger time of the transaction is less than the given time.
+isLedgerTimeLT: Time -> Update Bool
+isLedgerTimeLT = primitive @"ULedgerTimeLT"
+
+-- | True iff the ledger time of the transaction is less than or equal to the given time.
+isLedgerTimeLE: Time -> Update Bool
+isLedgerTimeLE time
+  | time == maxBound @Time = error $ "Can not compare against the maximum time bound"
+  | otherwise = isLedgerTimeLT (addRelTime time (microseconds 1))
+
+-- | True iff the ledger time of the transaction is greater than the given time.
+isLedgerTimeGT: Time -> Update Bool
+isLedgerTimeGT time = fmap not (isLedgerTimeLE time)
+
+-- | True iff the ledger time of the transaction is greater than or equal to the given time.
+isLedgerTimeGE: Time -> Update Bool
+isLedgerTimeGE time = fmap not (isLedgerTimeLT time)

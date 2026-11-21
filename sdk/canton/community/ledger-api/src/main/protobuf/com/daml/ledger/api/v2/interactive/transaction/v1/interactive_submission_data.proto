@@ -1,0 +1,79 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2.interactive.transaction.v1;
+
+import "com/daml/ledger/api/v2/value.proto";
+
+option csharp_namespace = "Com.Daml.Ledger.Api.V2.Interactive.Transaction.V1";
+option java_outer_classname = "InteractiveSubmissionDataOuterClass";
+option java_package = "com.daml.ledger.api.v2.interactive.transaction.v1";
+
+/*
+ * Transaction Nodes
+ */
+
+// Fetch node
+message Fetch {
+  // Specific LF version of the node
+  string lf_version = 1;
+  string contract_id = 2;
+  string package_name = 3;
+  // The identifier uses the package-id reference format.
+  Identifier template_id = 4;
+  repeated string signatories = 5;
+  repeated string stakeholders = 6;
+  repeated string acting_parties = 7;
+  // Optional
+  Identifier interface_id = 8;
+}
+
+// Exercise node
+message Exercise {
+  // Specific LF version of the node
+  string lf_version = 1;
+  string contract_id = 2;
+  string package_name = 3;
+  // The identifier uses the package-id reference format.
+  Identifier template_id = 4;
+  repeated string signatories = 5;
+  repeated string stakeholders = 6;
+  repeated string acting_parties = 7;
+  // The identifier uses the package-id reference format.
+  Identifier interface_id = 8;
+  string choice_id = 9;
+  Value chosen_value = 10;
+  bool consuming = 11;
+  repeated string children = 12;
+  Value exercise_result = 13;
+  repeated string choice_observers = 14;
+}
+
+// Create Node
+message Create {
+  // Specific LF version of the node
+  string lf_version = 1;
+  string contract_id = 2;
+  string package_name = 3;
+  // The identifier uses the package-id reference format.
+  Identifier template_id = 4;
+  Value argument = 5;
+  repeated string signatories = 6;
+  repeated string stakeholders = 7;
+}
+
+// Rollback Node
+message Rollback {
+  repeated string children = 1;
+}
+
+message Node {
+  oneof node_type {
+    Create create = 1;
+    Fetch fetch = 2;
+    Exercise exercise = 3;
+    Rollback rollback = 4;
+  }
+}

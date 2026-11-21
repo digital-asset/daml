@@ -1,0 +1,66 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Canton.Internal.PartyReplication where
+
+data ParticipantPermission = Submission | Confirmation | Observation deriving (Eq, Show)
+
+-- A PartyReplicationProposal is created by the target participant to reach an agreement with the source participant to
+-- replicate the specified party via one of the specified sequencers.
+template PartyReplicationProposal
+  with
+    partyReplicationId : Text
+    partyId : Party
+    sourceParticipant : Party -- participant admin party
+    targetParticipant : Party -- participant admin party
+    sequencerUids : [Text]
+    topologySerial : Int
+    participantPermission : ParticipantPermission
+  where
+    signatory targetParticipant
+    observer sourceParticipant
+
+    -- sequencerUids needs to be non-empty as otherwise it is impossible to accept the proposal
+    ensure length sequencerUids > 0
+
+    -- The source participant decides whether to accept the party replication proposal
+    -- and if so, indicates one of the sequencer UIDs to communicate via
+    choice Accept : ContractId PartyReplicationAgreement
+      with
+        sequencerUid : Text
+      controller sourceParticipant
+        do
+          assertMsg "sequencerUid needs to be one of sequencerUids" (sequencerUid `elem` sequencerUids)
+          partyReplicationAgreement <- create PartyReplicationAgreement with ..
+          return partyReplicationAgreement
+
+    -- Or the source participant rejects the party replication proposal
+    choice Reject : ()
+      with
+        reason : Text
+      controller sourceParticipant
+        do
+          return ()
+
+-- A PartyReplicationAgreement represents an agreement between the source and target participants to replicate the specified
+-- party via the specified sequencer.
+template PartyReplicationAgreement
+  with
+    partyReplicationId : Text
+    partyId : Party
+    sourceParticipant : Party -- participant admin party
+    targetParticipant : Party -- participant admin party
+    sequencerUid : Text
+    topologySerial : Int
+    participantPermission : ParticipantPermission
+  where
+    signatory targetParticipant, sourceParticipant
+
+    -- The source or target participant can declare the party replication agreement as done
+    choice Done : ()
+      with
+        participant : Party
+      controller participant
+        do
+          assertMsg "participant needs to be a signatory" (participant `elem` [sourceParticipant, targetParticipant])
+          return ()

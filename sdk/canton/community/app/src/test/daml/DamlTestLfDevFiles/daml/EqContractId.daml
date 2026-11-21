@@ -1,0 +1,19 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module EqContractId where
+
+import Daml.Script
+import DA.Assert
+
+template Foo with
+    p: Party
+  where
+  signatory p
+
+main = script do
+  alice <- allocateParty "Alice"
+  cid1 <- submit alice do createCmd Foo{p = alice}
+  cid2 <- submit alice do createCmd Foo{p = alice}
+  cid1 === cid1
+  cid1 =/= cid2
