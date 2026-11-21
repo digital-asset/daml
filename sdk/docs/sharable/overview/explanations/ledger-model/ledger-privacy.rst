@@ -39,7 +39,7 @@ The informees for a node are the union of the sets marked with X in the followin
 .. _def-informee:
 
 .. list-table:: Definiton: The **informees** of a node are the union of the sets marked with X.
-   :widths: 20 20 20 20 20
+   :widths: 20 20 20 20 20 20
    :header-rows: 1
 
    * - Action
@@ -47,9 +47,11 @@ The informees for a node are the union of the sets marked with X in the followin
      - Contract observers
      - Actors
      - Choice observers
+     - Key maintainers
    * - **Create**
      - X
      - X
+     -
      -
      -
    * - consuming **Exercise**
@@ -57,16 +59,25 @@ The informees for a node are the union of the sets marked with X in the followin
      - X
      - X
      - X
+     -
    * - non-consuming **Exercise**
      - X
      - 
      - X
      - X
+     -
    * - **Fetch**
      - X
      - 
      - X
      - 
+     -
+   * - **QueryByKey**
+     -
+     -
+     -
+     -
+     - X
 
 For example, the informees of a **Create** node are the stakeholders of the created contract, that is, the signatories and observers.
 For consuming **Exercise** node, the informees consist of the stakeholders of the consumed contract, the action's actors and choice observers.
