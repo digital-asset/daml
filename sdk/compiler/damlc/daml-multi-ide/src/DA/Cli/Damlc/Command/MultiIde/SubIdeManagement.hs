@@ -36,7 +36,8 @@ import qualified Data.Text as T
 import qualified Data.Text.Extended as TE
 import qualified Data.Text.IO as T
 import qualified Data.Yaml as Y
-import qualified Language.LSP.Types as LSP
+import qualified Language.LSP.Protocol.Types as LSP
+import qualified Language.LSP.Protocol.Message as LSP
 import System.Environment (getEnv, getEnvironment)
 import System.IO.Extra
 import System.Info.Extra (isWindows)
@@ -94,7 +95,7 @@ unsafeAddNewSubIdeAndSend miState ides home mMsg = do
         responses <- getUnrespondedRequestsFallbackResponses miState ideData home
         logDebug miState $ "Found " <> show (length responses) <> " unresponded messages, sending empty replies."
 
-        let ideData' = ideData {ideDataDisabled = IdeDataDisabled LSP.DsError err, ideDataFailures = []}
+        let ideData' = ideData {ideDataDisabled = IdeDataDisabled LSP.DiagnosticSeverity_Error err, ideDataFailures = []}
         atomically $ do
           -- Doesn't include mMsg, as if it was request, it'll already be in the tracker, so a reply for it will be in `responses`
           -- As such, we cannot send this on every failed message,
@@ -274,7 +275,7 @@ lenientRebootIdeByHome miState home = withIDEs_ miState $ \ides -> do
     else pure ides'
 
 -- Checks if a shutdown message LspId originated from the multi-ide coordinator
-isCoordinatorShutdownLspId :: LSP.LspId 'LSP.Shutdown -> Bool
+isCoordinatorShutdownLspId :: LSP.LspId 'LSP.Method_Shutdown -> Bool
 isCoordinatorShutdownLspId (LSP.IdString str) = "-shutdown" `T.isSuffixOf` str
 isCoordinatorShutdownLspId _ = False
 
@@ -292,10 +293,10 @@ unsafeShutdownIdeByHome miState ides home = do
     Just ide -> do
       let shutdownId = LSP.IdString $ ideMessageIdPrefix ide <> "-shutdown"
           shutdownMsg :: LSP.FromClientMessage
-          shutdownMsg = LSP.FromClientMess LSP.SShutdown LSP.RequestMessage 
+          shutdownMsg = LSP.FromClientMess LSP.SMethod_Shutdown LSP.TRequestMessage
             { _id = shutdownId
-            , _method = LSP.SShutdown
-            , _params = LSP.Empty
+            , _method = LSP.SMethod_Shutdown
+            , _params = Nothing
             , _jsonrpc = "2.0"
             }
       
@@ -324,9 +325,9 @@ handleExit miState ide =
       hTryClose $ ideInHandle ide
       terminateProcess $ unsafeProcessHandle $ ideProcess ide
     else do
-      let (exitMsg :: LSP.FromClientMessage) = LSP.FromClientMess LSP.SExit LSP.NotificationMessage
-            { _method = LSP.SExit
-            , _params = LSP.Empty
+      let (exitMsg :: LSP.FromClientMessage) = LSP.FromClientMess LSP.SMethod_Exit LSP.TNotificationMessage
+            { _method = LSP.SMethod_Exit
+            , _params = Nothing
             , _jsonrpc = "2.0"
             }
       logDebug miState $ "Sending exit message to " <> unPackageHome (ideHome ide)

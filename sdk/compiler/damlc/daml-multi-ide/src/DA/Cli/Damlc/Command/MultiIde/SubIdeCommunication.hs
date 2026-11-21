@@ -18,7 +18,7 @@ import DA.Cli.Damlc.Command.MultiIde.Types
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, mapMaybe)
 import GHC.Conc (unsafeIOToSTM)
-import qualified Language.LSP.Types as LSP
+import qualified Language.LSP.Protocol.Message as LSP
 import System.Directory (doesFileExist)
 import System.FilePath.Posix (takeDirectory)
 

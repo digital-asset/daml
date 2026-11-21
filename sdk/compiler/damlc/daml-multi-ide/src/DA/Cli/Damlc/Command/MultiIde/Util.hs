@@ -14,7 +14,7 @@ import Control.Concurrent.Async (AsyncCancelled (..))
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TMVar
 import Control.Exception (SomeException, fromException, handle, try, tryJust)
-import Control.Lens ((^.))
+import Control.Lens ((^.), (&), (.~), (?~))
 import Control.Monad (void)
 import Control.Monad.STM
 import Control.Monad.Trans.Class (lift)
@@ -24,7 +24,6 @@ import DA.Daml.Package.Config (getSimplePathOrName, isDamlYamlContentForPackage)
 import DA.Daml.Project.Config (readPackageConfig, queryPackageConfig, queryPackageConfigRequired)
 import DA.Daml.Project.Consts (packageConfigName)
 import DA.Daml.Project.Types (ConfigError (..))
-import Data.Aeson (Value (Null))
 import Data.Bifunctor (first)
 import Data.Either (fromRight)
 import Data.List.Extra (lower, replace)
@@ -33,9 +32,11 @@ import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Data.Text.Extended as T
 import GHC.Conc (TVar, readTVar, readTVarIO, writeTVar)
-import qualified Language.LSP.Types as LSP
-import qualified Language.LSP.Types.Lens as LSP
-import qualified Language.LSP.Types.Capabilities as LSP
+import qualified Language.LSP.Protocol.Types as LSP
+import qualified Language.LSP.Protocol.Message as LSP
+import qualified Language.LSP.Protocol.Lens as LSP
+import qualified Language.LSP.Types as OldLSP
+import GHC.TypeLits (symbolVal)
 import System.Directory (doesDirectoryExist, listDirectory, withCurrentDirectory, canonicalizePath)
 import qualified System.FilePath as NativeFilePath
 import System.FilePath.Posix (joinDrive, takeDirectory, takeExtension, (</>))
@@ -101,9 +102,11 @@ onSubIde_ miState home f = onSubIde miState home ((,()) . f)
 initializeResult :: Maybe T.Text -> LSP.InitializeResult
 initializeResult mCommandPrefix = LSP.InitializeResult 
   { _capabilities = LSP.ServerCapabilities 
-      { _textDocumentSync = Just $ LSP.InL $ LSP.TextDocumentSyncOptions 
+      { _positionEncoding = Nothing
+      , _notebookDocumentSync = Nothing
+      , _textDocumentSync = Just $ LSP.InL $ LSP.TextDocumentSyncOptions
           { _openClose = Just True
-          , _change = Just LSP.TdSyncIncremental
+          , _change = Just LSP.TextDocumentSyncKind_Incremental
           , _willSave = Nothing
           , _willSaveWaitUntil = Nothing
           , _save = Just (LSP.InR (LSP.SaveOptions {_includeText = Nothing}))
@@ -114,6 +117,7 @@ initializeResult mCommandPrefix = LSP.InitializeResult
           , _triggerCharacters = Nothing
           , _allCommitCharacters = Nothing
           , _resolveProvider = Just False
+          , _completionItem = Nothing
           }
       , _signatureHelpProvider = Nothing
       , _declarationProvider = false
@@ -134,49 +138,49 @@ initializeResult mCommandPrefix = LSP.InitializeResult
       , _foldingRangeProvider = false
       , _executeCommandProvider = Just (LSP.ExecuteCommandOptions
           { _workDoneProgress = Nothing
-          , _commands = LSP.List
+          , _commands =
               [maybe "" (<> ".") mCommandPrefix <> "typesignature.add"]
           })
       , _selectionRangeProvider = false
       , _callHierarchyProvider = false
       , _semanticTokensProvider = Just $ LSP.InR $ LSP.SemanticTokensRegistrationOptions
-          { _documentSelector = Nothing
+          { _documentSelector = LSP.InR LSP.Null
           , _workDoneProgress = Nothing
           , _legend = LSP.SemanticTokensLegend
-              { _tokenTypes = LSP.List
-                  [ LSP.SttType
-                  , LSP.SttClass
-                  , LSP.SttEnum
-                  , LSP.SttInterface
-                  , LSP.SttStruct
-                  , LSP.SttTypeParameter
-                  , LSP.SttParameter
-                  , LSP.SttVariable
-                  , LSP.SttProperty
-                  , LSP.SttEnumMember
-                  , LSP.SttEvent
-                  , LSP.SttFunction
-                  , LSP.SttMethod
-                  , LSP.SttMacro
-                  , LSP.SttKeyword
-                  , LSP.SttModifier
-                  , LSP.SttComment
-                  , LSP.SttString
-                  , LSP.SttNumber
-                  , LSP.SttRegexp
-                  , LSP.SttOperator
+              { _tokenTypes = map LSP.toEnumBaseType
+                  [ LSP.SemanticTokenTypes_Type
+                  , LSP.SemanticTokenTypes_Class
+                  , LSP.SemanticTokenTypes_Enum
+                  , LSP.SemanticTokenTypes_Interface
+                  , LSP.SemanticTokenTypes_Struct
+                  , LSP.SemanticTokenTypes_TypeParameter
+                  , LSP.SemanticTokenTypes_Parameter
+                  , LSP.SemanticTokenTypes_Variable
+                  , LSP.SemanticTokenTypes_Property
+                  , LSP.SemanticTokenTypes_EnumMember
+                  , LSP.SemanticTokenTypes_Event
+                  , LSP.SemanticTokenTypes_Function
+                  , LSP.SemanticTokenTypes_Method
+                  , LSP.SemanticTokenTypes_Macro
+                  , LSP.SemanticTokenTypes_Keyword
+                  , LSP.SemanticTokenTypes_Modifier
+                  , LSP.SemanticTokenTypes_Comment
+                  , LSP.SemanticTokenTypes_String
+                  , LSP.SemanticTokenTypes_Number
+                  , LSP.SemanticTokenTypes_Regexp
+                  , LSP.SemanticTokenTypes_Operator
                   ]
-              , _tokenModifiers = LSP.List
-                  [ LSP.StmDeclaration
-                  , LSP.StmDefinition
-                  , LSP.StmReadonly
-                  , LSP.StmStatic
-                  , LSP.StmDeprecated
-                  , LSP.StmAbstract
-                  , LSP.StmAsync
-                  , LSP.StmModification
-                  , LSP.StmDocumentation
-                  , LSP.StmDefaultLibrary
+              , _tokenModifiers = map LSP.toEnumBaseType
+                  [ LSP.SemanticTokenModifiers_Declaration
+                  , LSP.SemanticTokenModifiers_Definition
+                  , LSP.SemanticTokenModifiers_Readonly
+                  , LSP.SemanticTokenModifiers_Static
+                  , LSP.SemanticTokenModifiers_Deprecated
+                  , LSP.SemanticTokenModifiers_Abstract
+                  , LSP.SemanticTokenModifiers_Async
+                  , LSP.SemanticTokenModifiers_Modification
+                  , LSP.SemanticTokenModifiers_Documentation
+                  , LSP.SemanticTokenModifiers_DefaultLibrary
                   ]
               }
 
@@ -184,10 +188,17 @@ initializeResult mCommandPrefix = LSP.InitializeResult
           , _full = Nothing
           , _id = Nothing
           }
-      , _workspaceSymbolProvider = Just False
-      , _workspace = Just $ LSP.WorkspaceServerCapabilities
+      , _workspaceSymbolProvider = false
+      , _linkedEditingRangeProvider = Nothing
+      , _monikerProvider = Nothing
+      , _typeHierarchyProvider = Nothing
+      , _inlineValueProvider = Nothing
+      , _inlayHintProvider = Nothing
+      , _diagnosticProvider = Nothing
+      , _workspace = Just $ LSP.WorkspaceOptions
           { _workspaceFolders =
               Just (LSP.WorkspaceFoldersServerCapabilities {_supported = Just True, _changeNotifications = Just (LSP.InR True)})
+          , _fileOperations = Nothing
           }
       , _experimental = Nothing
       }
@@ -198,19 +209,18 @@ initializeResult mCommandPrefix = LSP.InitializeResult
     false = Just (LSP.InL False)
 
 initializeRequest :: InitParams -> SubIdeInstance -> LSP.FromClientMessage
-initializeRequest initParams ide = LSP.FromClientMess LSP.SInitialize LSP.RequestMessage 
+initializeRequest initParams ide = LSP.FromClientMess LSP.SMethod_Initialize LSP.TRequestMessage
   { _id = LSP.IdString $ ideMessageIdPrefix ide <> "-init"
-  , _method = LSP.SInitialize
+  , _method = LSP.SMethod_Initialize
   , _params = initParams
-      { LSP._rootPath = Just $ T.pack $ unPackageHome $ ideHome ide
-      , LSP._rootUri = Just $ LSP.filePathToUri $ unPackageHome $ ideHome ide
-      }
+      & LSP.rootPath ?~ LSP.InL (T.pack $ unPackageHome $ ideHome ide)
+      & LSP.rootUri .~ LSP.InL (LSP.filePathToUri $ unPackageHome $ ideHome ide)
   , _jsonrpc = "2.0"
   }
 
 openFileNotification :: DamlFile -> T.Text -> LSP.FromClientMessage
-openFileNotification path content = LSP.FromClientMess LSP.STextDocumentDidOpen LSP.NotificationMessage
-  { _method = LSP.STextDocumentDidOpen
+openFileNotification path content = LSP.FromClientMess LSP.SMethod_TextDocumentDidOpen LSP.TNotificationMessage
+  { _method = LSP.SMethod_TextDocumentDidOpen
   , _params = LSP.DidOpenTextDocumentParams
     { _textDocument = LSP.TextDocumentItem
       { _uri = LSP.filePathToUri $ unDamlFile path
@@ -223,8 +233,8 @@ openFileNotification path content = LSP.FromClientMess LSP.STextDocumentDidOpen 
   }
 
 closeFileNotification :: DamlFile -> LSP.FromClientMessage
-closeFileNotification path = LSP.FromClientMess LSP.STextDocumentDidClose LSP.NotificationMessage
-  {_method = LSP.STextDocumentDidClose
+closeFileNotification path = LSP.FromClientMess LSP.SMethod_TextDocumentDidClose LSP.TNotificationMessage
+  {_method = LSP.SMethod_TextDocumentDidClose
   , _params = LSP.DidCloseTextDocumentParams $ LSP.TextDocumentIdentifier $
       LSP.filePathToUri $ unDamlFile path
   , _jsonrpc = "2.0"
@@ -232,21 +242,40 @@ closeFileNotification path = LSP.FromClientMess LSP.STextDocumentDidClose LSP.No
 
 registerFileWatchersMessage :: FilePath -> LSP.FromServerMessage
 registerFileWatchersMessage multiPackageHome =
-  LSP.FromServerMess LSP.SClientRegisterCapability $
-    LSP.RequestMessage "2.0" (LSP.IdString "MultiIdeWatchedFiles") LSP.SClientRegisterCapability $ LSP.RegistrationParams $ LSP.List
-      [ LSP.SomeRegistration $ LSP.Registration "MultiIdeWatchedFiles" LSP.SWorkspaceDidChangeWatchedFiles $ LSP.DidChangeWatchedFilesRegistrationOptions $ LSP.List
-        [ LSP.FileSystemWatcher (T.pack $ multiPackageHome </> "**/multi-package.yaml") Nothing
-        , LSP.FileSystemWatcher (T.pack $ multiPackageHome </> "**/daml.yaml") Nothing
-        , LSP.FileSystemWatcher (T.pack $ multiPackageHome </> "**/*.dar") Nothing
-        , LSP.FileSystemWatcher (T.pack $ multiPackageHome </> "**/*.daml") Nothing
-        ]
-      , LSP.SomeRegistration $ LSP.Registration "MultiIdeOpenFiles" LSP.STextDocumentDidOpen $ LSP.TextDocumentRegistrationOptions $ Just $ LSP.List
-        [ LSP.DocumentFilter Nothing Nothing $ Just $ T.pack $ multiPackageHome </> "**/daml.yaml"
-        ]
-      , LSP.SomeRegistration $ LSP.Registration "MultiIdeOpenFiles" LSP.STextDocumentDidClose $ LSP.TextDocumentRegistrationOptions $ Just $ LSP.List
-        [ LSP.DocumentFilter Nothing Nothing $ Just $ T.pack $ multiPackageHome </> "**/daml.yaml"
-        ]
+  LSP.FromServerMess LSP.SMethod_ClientRegisterCapability $
+    LSP.TRequestMessage "2.0" (LSP.IdString "MultiIdeWatchedFiles") LSP.SMethod_ClientRegisterCapability $ LSP.RegistrationParams
+      [ LSP.toUntypedRegistration $ LSP.TRegistration "MultiIdeWatchedFiles" LSP.SMethod_WorkspaceDidChangeWatchedFiles $ Just $ LSP.DidChangeWatchedFilesRegistrationOptions
+          [ watcher "**/multi-package.yaml"
+          , watcher "**/daml.yaml"
+          , watcher "**/*.dar"
+          , watcher "**/*.daml"
+          ]
+      , LSP.toUntypedRegistration $ LSP.TRegistration "MultiIdeOpenFiles" LSP.SMethod_TextDocumentDidOpen $ Just documentOptions
+      , LSP.toUntypedRegistration $ LSP.TRegistration "MultiIdeOpenFiles" LSP.SMethod_TextDocumentDidClose $ Just documentOptions
       ]
+  where
+    patternFor glob = LSP.Pattern $ T.pack $ multiPackageHome </> glob
+    watcher glob = LSP.FileSystemWatcher (LSP.GlobPattern $ LSP.InL $ patternFor glob) Nothing
+    documentOptions = LSP.TextDocumentRegistrationOptions $ LSP.InL $ LSP.DocumentSelector
+      [ LSP.DocumentFilter $ LSP.InL $ LSP.TextDocumentFilter $ LSP.InR $ LSP.InR $
+          LSP.TextDocumentFilterPattern Nothing Nothing (T.pack $ multiPackageHome </> "**/daml.yaml")
+      ]
+
+-- The single-package IDE still exposes lsp-types 1.x payloads.
+toOldTextDocumentIdentifier :: LSP.TextDocumentIdentifier -> OldLSP.TextDocumentIdentifier
+toOldTextDocumentIdentifier (LSP.TextDocumentIdentifier (LSP.Uri uri)) =
+  OldLSP.TextDocumentIdentifier $ OldLSP.Uri uri
+
+toOldPosition :: LSP.Position -> OldLSP.Position
+toOldPosition (LSP.Position line character) =
+  OldLSP.Position (fromIntegral line) (fromIntegral character)
+
+fromOldLocation :: OldLSP.Location -> LSP.Location
+fromOldLocation (OldLSP.Location (OldLSP.Uri uri) (OldLSP.Range start end)) =
+  LSP.Location (LSP.Uri uri) $ LSP.Range (position start) (position end)
+  where
+    position (OldLSP.Position line character) =
+      LSP.Position (fromIntegral line) (fromIntegral character)
 
 castLspId :: LSP.LspId m -> LSP.LspId m'
 castLspId (LSP.IdString s) = LSP.IdString s
@@ -316,56 +345,58 @@ packageSummaryFromDamlYaml path = do
 noIDEReply :: LSP.FromClientMessage -> Maybe LSP.FromServerMessage
 noIDEReply (LSP.FromClientMess method params) =
   case (method, params) of
-    (LSP.STextDocumentWillSaveWaitUntil, _) -> makeRes params $ LSP.List []
-    (LSP.STextDocumentCompletion, _) -> makeRes params $ LSP.InL $ LSP.List []
-    (LSP.STextDocumentHover, _) -> makeRes params Nothing
-    (LSP.STextDocumentSignatureHelp, _) -> makeRes params $ LSP.SignatureHelp (LSP.List []) Nothing Nothing
-    (LSP.STextDocumentDeclaration, _) -> makeRes params $ LSP.InR $ LSP.InL $ LSP.List []
-    (LSP.STextDocumentDefinition, _) -> makeRes params $ LSP.InR $ LSP.InL $ LSP.List []
-    (LSP.STextDocumentDocumentSymbol, _) -> makeRes params $ LSP.InL $ LSP.List []
-    (LSP.STextDocumentCodeAction, _) -> makeRes params $ LSP.List []
-    (LSP.STextDocumentCodeLens, _) -> makeRes params $ LSP.List []
-    (LSP.STextDocumentDocumentLink, _) -> makeRes params $ LSP.List []
-    (LSP.STextDocumentColorPresentation, _) -> makeRes params $ LSP.List []
-    (LSP.STextDocumentOnTypeFormatting, _) -> makeRes params $ LSP.List []
-    (LSP.SWorkspaceExecuteCommand, _) -> makeRes params Null
-    (LSP.SCustomMethod "daml/tryGetDefinition", LSP.ReqMess params) -> noDefinitionRes params
-    (LSP.SCustomMethod "daml/gotoDefinitionByName", LSP.ReqMess params) -> noDefinitionRes params
+    (LSP.SMethod_TextDocumentWillSaveWaitUntil, _) -> makeRes params $ LSP.InL []
+    (LSP.SMethod_TextDocumentCompletion, _) -> makeRes params $ LSP.InL []
+    (LSP.SMethod_TextDocumentHover, _) -> makeRes params $ LSP.InR LSP.Null
+    (LSP.SMethod_TextDocumentSignatureHelp, _) -> makeRes params $ LSP.InL $ LSP.SignatureHelp [] Nothing Nothing
+    (LSP.SMethod_TextDocumentDeclaration, _) -> makeRes params $ LSP.InL $ LSP.Declaration $ LSP.InR []
+    (LSP.SMethod_TextDocumentDefinition, _) -> makeRes params $ LSP.InL $ LSP.Definition $ LSP.InR []
+    (LSP.SMethod_TextDocumentDocumentSymbol, _) -> makeRes params $ LSP.InR $ LSP.InL []
+    (LSP.SMethod_TextDocumentCodeAction, _) -> makeRes params $ LSP.InL []
+    (LSP.SMethod_TextDocumentCodeLens, _) -> makeRes params $ LSP.InL []
+    (LSP.SMethod_TextDocumentDocumentLink, _) -> makeRes params $ LSP.InL []
+    (LSP.SMethod_TextDocumentColorPresentation, _) -> makeRes params []
+    (LSP.SMethod_TextDocumentOnTypeFormatting, _) -> makeRes params $ LSP.InL []
+    (LSP.SMethod_WorkspaceExecuteCommand, _) -> makeRes params $ LSP.InR LSP.Null
+    (LSP.SMethod_CustomMethod (symbolVal -> "daml/tryGetDefinition"), LSP.ReqMess params) -> noDefinitionRes params
+    (LSP.SMethod_CustomMethod (symbolVal -> "daml/gotoDefinitionByName"), LSP.ReqMess params) -> noDefinitionRes params
     _ -> Nothing
   where
-    makeRes :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request). LSP.RequestMessage m -> LSP.ResponseResult m -> Maybe LSP.FromServerMessage
-    makeRes params result = Just $ LSP.FromServerRsp (params ^. LSP.method) $ LSP.ResponseMessage "2.0" (Just $ params ^. LSP.id) (Right result)
-    noDefinitionRes :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request). LSP.RequestMessage m -> Maybe LSP.FromServerMessage
-    noDefinitionRes params = Just $ LSP.FromServerRsp LSP.STextDocumentDefinition $ LSP.ResponseMessage "2.0" (Just $ castLspId $ params ^. LSP.id) $
-      Right $ LSP.InR $ LSP.InL $ LSP.List []
+    makeRes :: forall (m :: LSP.Method 'LSP.ClientToServer 'LSP.Request). LSP.TRequestMessage m -> LSP.MessageResult m -> Maybe LSP.FromServerMessage
+    makeRes params result = Just $ LSP.FromServerRsp (params ^. LSP.method) $ LSP.TResponseMessage "2.0" (Just $ params ^. LSP.id) (Right result)
+    noDefinitionRes :: forall (m :: LSP.Method 'LSP.ClientToServer 'LSP.Request). LSP.TRequestMessage m -> Maybe LSP.FromServerMessage
+    noDefinitionRes params = Just $ LSP.FromServerRsp LSP.SMethod_TextDocumentDefinition $ LSP.TResponseMessage "2.0" (Just $ castLspId $ params ^. LSP.id) $
+      Right $ LSP.InL $ LSP.Definition $ LSP.InR []
 noIDEReply _ = Nothing
 
 -- | Publishes an error diagnostic for a file containing the given message
 fullFileDiagnostic :: LSP.DiagnosticSeverity -> String -> FilePath -> LSP.FromServerMessage
-fullFileDiagnostic severity message path = LSP.FromServerMess LSP.STextDocumentPublishDiagnostics $ LSP.NotificationMessage "2.0" LSP.STextDocumentPublishDiagnostics 
-  $ LSP.PublishDiagnosticsParams (LSP.filePathToUri path) Nothing $ LSP.List [LSP.Diagnostic 
+fullFileDiagnostic severity message path = LSP.FromServerMess LSP.SMethod_TextDocumentPublishDiagnostics $ LSP.TNotificationMessage "2.0" LSP.SMethod_TextDocumentPublishDiagnostics
+  $ LSP.PublishDiagnosticsParams (LSP.filePathToUri path) Nothing [LSP.Diagnostic
     { _range = LSP.Range (LSP.Position 0 0) (LSP.Position 0 1000)
     , _severity = Just severity
     , _code = Nothing
+    , _codeDescription = Nothing
     , _source = Just "Daml Multi-IDE"
     , _message = T.pack message
     , _tags = Nothing
     , _relatedInformation = Nothing
+    , _data_ = Nothing
     }]
 
 -- | Clears diagnostics for a given file
 clearDiagnostics :: FilePath -> LSP.FromServerMessage
-clearDiagnostics path = LSP.FromServerMess LSP.STextDocumentPublishDiagnostics $ LSP.NotificationMessage "2.0" LSP.STextDocumentPublishDiagnostics 
-  $ LSP.PublishDiagnosticsParams (LSP.filePathToUri path) Nothing $ LSP.List []
+clearDiagnostics path = LSP.FromServerMess LSP.SMethod_TextDocumentPublishDiagnostics $ LSP.TNotificationMessage "2.0" LSP.SMethod_TextDocumentPublishDiagnostics
+  $ LSP.PublishDiagnosticsParams (LSP.filePathToUri path) Nothing []
 
-showMessageRequest :: LSP.LspId 'LSP.WindowShowMessageRequest -> LSP.MessageType -> T.Text -> [T.Text] -> LSP.FromServerMessage
-showMessageRequest lspId messageType message options = LSP.FromServerMess LSP.SWindowShowMessageRequest $
-  LSP.RequestMessage "2.0" lspId LSP.SWindowShowMessageRequest $ LSP.ShowMessageRequestParams messageType message $
+showMessageRequest :: LSP.LspId 'LSP.Method_WindowShowMessageRequest -> LSP.MessageType -> T.Text -> [T.Text] -> LSP.FromServerMessage
+showMessageRequest lspId messageType message options = LSP.FromServerMess LSP.SMethod_WindowShowMessageRequest $
+  LSP.TRequestMessage "2.0" lspId LSP.SMethod_WindowShowMessageRequest $ LSP.ShowMessageRequestParams messageType message $
     Just $ LSP.MessageActionItem <$> options
 
 showMessage :: LSP.MessageType -> T.Text -> LSP.FromServerMessage
-showMessage messageType message = LSP.FromServerMess LSP.SWindowShowMessage $
-  LSP.NotificationMessage "2.0" LSP.SWindowShowMessage $ LSP.ShowMessageParams messageType message
+showMessage messageType message = LSP.FromServerMess LSP.SMethod_WindowShowMessage $
+  LSP.TNotificationMessage "2.0" LSP.SMethod_WindowShowMessage $ LSP.ShowMessageParams messageType message
 
 fromClientRequestLspId :: LSP.FromClientMessage -> Maybe LSP.SomeLspId
 fromClientRequestLspId (LSP.FromClientMess method params) =
