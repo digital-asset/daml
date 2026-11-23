@@ -17,6 +17,7 @@ import Data.Maybe
 import qualified DA.Pretty           as Pretty
 import DA.Cli.Studio (ReplaceExtension (..))
 import DA.Daml.Options.Types
+import DA.Daml.Package.Config (UpgradedPackage, parseUpgradePackage)
 import DA.Daml.LF.Ast.Util (splitUnitId)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.Project.Consts
@@ -439,7 +440,7 @@ data CliOptions = CliOptions
   , cliOptCppPath :: OverwritableFlagResult (Maybe FilePath)
   , cliOptIncrementalBuild :: OverwritableFlagResult IncrementalBuild
   , cliOptAccessTokenPath :: OverwritableFlagResult (Maybe FilePath)
-  , cliOptUpgradedPackagePath :: OverwritableFlagResult (Maybe FilePath)
+  , cliOptUpgradedPackage :: OverwritableFlagResult (Maybe UpgradedPackage)
   , cliOptTypecheckUpgrades :: OverwritableFlagResult Bool
   , cliOptTypecheckerWarningFlags :: WarningFlags TypeCheckerError.ErrorOrWarning
   , cliOptLfConversionWarningFlags :: WarningFlags LFConversion.ErrorOrWarning
@@ -489,7 +490,7 @@ cliOptionsParser numProcessors parseUnitId parseDlintUsage = do
     cliOptCppPath <- optCppPath
     cliOptIncrementalBuild <- optIncrementalBuild
     cliOptAccessTokenPath <- optAccessTokenPath
-    cliOptUpgradedPackagePath <- optUpgradeDar
+    cliOptUpgradedPackage <- optUpgradeDar
     cliOptTypecheckUpgrades <- optTypecheckUpgrades
     ~(cliOptInlineDamlCustomWarningFlags, cliOptTypecheckerWarningFlags, cliOptLfConversionWarningFlags) <- optWarningFlags
     cliOptIgnoreDataDepVisibility <- optIgnoreDataDepVisibility
@@ -624,11 +625,11 @@ cliOptionsParser numProcessors parseUnitId parseDlintUsage = do
         <> value Nothing
         <> internal
 
-    optUpgradeDar :: Parser (OverwritableFlagResult (Maybe FilePath))
-    optUpgradeDar = optionOnceFlagResult (Just <$> str)
+    optUpgradeDar :: Parser (OverwritableFlagResult (Maybe UpgradedPackage))
+    optUpgradeDar = optionOnceFlagResult (Just <$> eitherReader parseUpgradePackage)
         $ metavar "UPGRADE_DAR"
         <> long "upgrades"
-        <> help "Set DAR to upgrade"
+        <> help "Set DAR (or package id) of the package to upgrade"
         <> value Nothing
 
     optTypecheckUpgrades :: Parser (OverwritableFlagResult Bool)
@@ -729,7 +730,7 @@ cliOptionsToOptions enableScriptService CliOptions {..} =
     , optIncrementalBuild = getFlagResult cliOptIncrementalBuild
     , optAccessTokenPath = getFlagResult cliOptAccessTokenPath
     , optUpgradeInfo = UpgradeInfo
-        { uiUpgradedPackagePath = getFlagResult cliOptUpgradedPackagePath
+        { uiUpgradedPackage = getFlagResult cliOptUpgradedPackage
         , uiTypecheckUpgrades = getFlagResult cliOptTypecheckUpgrades
         }
     , optTypecheckerWarningFlags = cliOptTypecheckerWarningFlags

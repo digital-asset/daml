@@ -20,6 +20,7 @@ import Control.Exception
 import DA.Daml.LF.Ast.Util
 import DA.Daml.LF.Ast.Version as LFV
 import DA.Daml.LF.TypeChecker.Upgrade as Upgrade
+import DA.Daml.Package.Config (UpgradedPackage (..))
 import Data.List (tails)
 import Data.Maybe (mapMaybe)
 import Safe (maximumByMay, minimumByMay)
@@ -167,7 +168,7 @@ checkPackageAgainstPastPackages ((path, main, deps), pastPackages) = do
                   Upgrade.CheckAll
                   (upwnavPkg main) deps
                   LFV.devLfVersion
-                  (UpgradeInfo (Just (fromNormalizedFilePath path)) True)
+                  (UpgradeInfo (Just (UpgradedPackagePath (fromNormalizedFilePath path))) True)
                   (mkWarningFlags TypeCheckerError.warningFlagParser [])
                   (Just (closestPastPackageWithLowerVersion, closestPastPackageWithLowerVersionDeps))
           when (not (null errs)) (throwE [CEDiagnostic path errs])
@@ -179,7 +180,7 @@ checkPackageAgainstPastPackages ((path, main, deps), pastPackages) = do
                   Upgrade.CheckAll
                   (upwnavPkg closestPastPackageWithHigherVersion) closestPastPackageWithHigherVersionDeps
                   LFV.devLfVersion
-                  (UpgradeInfo (Just (fromNormalizedFilePath path)) True)
+                  (UpgradeInfo (Just (UpgradedPackagePath (fromNormalizedFilePath path))) True)
                   (mkWarningFlags TypeCheckerError.warningFlagParser [])
                   (Just (main, deps))
           when (not (null errs)) (throwE [CEDiagnostic path errs])

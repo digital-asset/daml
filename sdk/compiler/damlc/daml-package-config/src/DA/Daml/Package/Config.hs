@@ -8,6 +8,9 @@ module DA.Daml.Package.Config
     ( MultiPackageConfigFields (..)
     , PackageConfigFields (..)
     , DependencySpec (..)
+    , UpgradedPackage (..)
+    , parseUpgradePackage
+    , parsePackageId
     , isUnresolvedDpmDependency
     , renderDependencySpec
     , getSimplePathOrName
@@ -17,6 +20,8 @@ module DA.Daml.Package.Config
     , withMultiPackageConfig
     , checkPkgConfig
     , isDamlYamlContentForPackage
+    , upgradedPackagePath
+    , canonicalizeUpgradePackage
     ) where
 
 import qualified DA.Daml.LF.Ast as LF
@@ -34,6 +39,8 @@ import qualified Data.Aeson.Key as A
 import qualified Data.Aeson.KeyMap as A
 import qualified Data.Aeson.Encoding as A
 import qualified Data.ByteString.Lazy.UTF8 as BS
+import Data.Char (isHexDigit)
+import Data.Foldable (traverse_)
 import Data.List.Extra (isPrefixOf, isInfixOf, nubOrd)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -43,7 +50,7 @@ import qualified Data.Text as T
 import qualified Data.Yaml as Y
 import qualified Module as Ghc
 import System.Directory (canonicalizePath, doesFileExist, withCurrentDirectory)
-import System.FilePath (dropDrive, takeDirectory, (</>))
+import System.FilePath (dropDrive, takeDirectory, takeExtension, (</>))
 import Text.Regex.TDFA
 
 data DependencySpec
@@ -82,6 +89,45 @@ renderDependencySpec :: DependencySpec -> String
 renderDependencySpec (SimplePathOrName s) = show s
 renderDependencySpec (UnresolvedDpmDependency v) = BS.toString $ A.encode v
 
+-- | Upgraded package used for both upgrade-typechecking and included in the dar metadata.
+-- For dar verification, we do not have the original dar, but must still include the package-id in the
+-- main package metadata.
+-- To support this, we can directly reference a package-id in the upgrades field/flags. This will
+-- NOT run upgrade checks, and will error if they are not explicitly disabled by the user.
+-- (note that disabling the checks will not affect the resulting package-id)
+data UpgradedPackage
+  = UpgradedPackagePath FilePath
+  | UpgradedPackageId LF.PackageId
+  deriving (Show, Eq, Ord)
+
+instance A.FromJSON UpgradedPackage where
+  parseJSON = A.withText "UpgradedPackage" $ either fail pure . parseUpgradePackage . T.unpack
+
+upgradedPackagePath :: UpgradedPackage -> Maybe FilePath
+upgradedPackagePath (UpgradedPackagePath path) = Just path
+upgradedPackagePath _ = Nothing
+
+canonicalizeUpgradePackage :: UpgradedPackage -> IO UpgradedPackage
+canonicalizeUpgradePackage (UpgradedPackagePath path) = UpgradedPackagePath <$> canonicalizePath path
+canonicalizeUpgradePackage pkg@(UpgradedPackageId _) = pure pkg
+
+-- | Parse upgrades field/flag as either a path or a package-id
+-- Determine whether to parse as path or pkg-id via extension
+parseUpgradePackage :: String -> Either String UpgradedPackage
+parseUpgradePackage str
+  | takeExtension str == ".dar" = Right $ UpgradedPackagePath str
+  | otherwise = UpgradedPackageId <$> parsePackageId str
+
+parsePackageId :: String -> Either String LF.PackageId
+parsePackageId packageId = do
+  traverse_ (\c -> assertMsg ("Invalid character in package id: " <> [c]) $ isHexDigit c) packageId
+  assertMsg ("Package id must be exactly 64 characters, got " <> show (length packageId))
+    $ length packageId == 64
+  pure $ LF.PackageId $ T.toLower $ T.pack packageId
+  where
+    assertMsg :: String -> Bool -> Either String ()
+    assertMsg msg cond = if cond then Right () else Left msg
+
 -- | daml.yaml config fields specific to packaging.
 data PackageConfigFields = PackageConfigFields
     { pName :: LF.PackageName
@@ -96,7 +142,7 @@ data PackageConfigFields = PackageConfigFields
     -- ^ Map from unit ids to a prefix for all modules in that package.
     -- If this is specified, all modules from the package will be remapped
     -- under the given prefix.
-    , pUpgradeDar :: Maybe FilePath
+    , pUpgradeDar :: Maybe UpgradedPackage
     }
 
 -- | Parse the daml.yaml for package specific config fields.

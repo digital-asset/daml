@@ -35,6 +35,7 @@ import DA.Daml.LF.Ast.Version ( Version(versionMajor), renderMajorVersion, suppo
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
+import DA.Daml.Package.Config (upgradedPackagePath)
 import DA.Daml.Project.Consts (packageConfigName)
 import DA.Daml.Project.Types (PackagePath (..))
 import Data.Aeson hiding (Options)
@@ -612,7 +613,7 @@ getUpgradedPackageErrs opts file mainPkg
 extractUpgradedPackageRule :: Options -> Rules ()
 extractUpgradedPackageRule opts = do
   defineNoFile $ \ExtractUpgradedPackage ->
-    forM (uiUpgradedPackagePath $ optUpgradeInfo opts) $
+    forM (uiUpgradedPackage (optUpgradeInfo opts) >>= upgradedPackagePath) $
       use_ ExtractUpgradedPackageFile . toNormalizedFilePath'
   define $ \ExtractUpgradedPackageFile file -> do
     extractedDar <- liftIO $ extractDar (fromNormalizedFilePath file)

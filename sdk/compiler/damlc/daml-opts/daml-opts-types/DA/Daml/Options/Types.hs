@@ -362,7 +362,7 @@ defaultTestOptions mbVersion =
 
 defaultUpgradeInfo :: UpgradeInfo
 defaultUpgradeInfo = UpgradeInfo
-    { uiUpgradedPackagePath = Nothing
+    { uiUpgradedPackage = Nothing
     , uiTypecheckUpgrades = defaultUiTypecheckUpgrades
     }
 

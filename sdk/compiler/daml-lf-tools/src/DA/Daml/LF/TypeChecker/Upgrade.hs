@@ -19,6 +19,7 @@ import qualified DA.Daml.LF.Ast.Alpha as Alpha
 import           DA.Daml.LF.TypeChecker.Check (expandTypeSynonyms)
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
+import           DA.Daml.Package.Config (UpgradedPackage)
 import           Data.Either (partitionEithers)
 import           Data.Hashable
 import qualified Data.HashMap.Strict as HMS
@@ -43,7 +44,7 @@ data PreUpgradingEnv = PreUpgradingEnv
   }
 
 data UpgradeInfo = UpgradeInfo
-  { uiUpgradedPackagePath :: Maybe FilePath
+  { uiUpgradedPackage :: Maybe UpgradedPackage
   , uiTypecheckUpgrades :: Bool
   }
 

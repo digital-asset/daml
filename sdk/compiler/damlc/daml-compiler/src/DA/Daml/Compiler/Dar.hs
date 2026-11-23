@@ -138,10 +138,15 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
                  opts <- lift getIdeOptions
                  lfVersion <- lift getDamlLfVersion
                  mbUpgradedPackage <- useNoFileE ExtractUpgradedPackage
+                 let mbUpgradedPackageId = case uiUpgradedPackage upgradeInfo of
+                        -- When upgrading against a package id, there is no DAR to extract
+                        -- the package id from, so take it from the upgrade info directly.
+                        Just (UpgradedPackageId pkgId) -> Just (LF.UpgradedPackageId pkgId)
+                        _ -> LF.UpgradedPackageId . upwnavPkgId . fst <$> mbUpgradedPackage
                  let pMeta = LF.PackageMetadata
                         { packageName = pName
                         , packageVersion = fromMaybe (LF.PackageVersion "0.0.0") pVersion
-                        , upgradedPackageId = LF.UpgradedPackageId . upwnavPkgId . fst <$> mbUpgradedPackage
+                        , upgradedPackageId = mbUpgradedPackageId
                         }
                  pkg <- case optShakeFiles opts of
                      Nothing -> mergePkgs pMeta lfVersion . map fst <$> usesE GeneratePackage files
