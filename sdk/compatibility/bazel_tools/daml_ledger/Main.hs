@@ -249,6 +249,9 @@ deriveBuildOptions :: SdkVersion -> PlatformVersion -> [String]
 -- LF 2.3 support added in 3.5, so when running 3.5+ SDK with <3.5 platform, we use LF 2.2
 deriveBuildOptions sdkVersion platformVersion |
   sdkVersion >= semverFromTextUnsafe SdkVersion "3.5.0" && platformVersion < semverFromTextUnsafe PlatformVersion "3.5.0" = ["  - --target=2.2"]
+-- LF 2.4 support added in 3.6 and became the default in 3.9, so when running 3.9+ SDK with <3.6 platform, we use LF 2.3
+deriveBuildOptions sdkVersion platformVersion |
+  sdkVersion >= semverFromTextUnsafe SdkVersion "3.9.0-snapshot" && platformVersion < semverFromTextUnsafe PlatformVersion "3.6.0" = ["  - --target=2.3"]
 deriveBuildOptions _ _ = []
 
 -- | Write `daml.yaml` and `Main.daml` files in the current directory.
