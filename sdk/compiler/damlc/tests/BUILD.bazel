@@ -995,9 +995,8 @@ da_haskell_test(
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/script-service/server:script_service_jar",
-        # TODO[23053]: remove hardcoded versions
-        "//daml-script/daml:daml-script-2.2.dar",
-        "//daml-script/daml:daml-script-2.3.dar",
+        # The tests run at the default LF version.
+        "//daml-script/daml:daml-script-{}.dar".format(DEFAULT_LF_VERSION),
         ghc_pkg,
     ],
     hackage_deps = [
