@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.codegen
 
 import java.nio.file.Path
 import com.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.archive.DarReader
+import com.digitalasset.daml.lf.archive.DarPackageIdReader
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.typesig._
@@ -269,7 +269,7 @@ object JavaCodeGenTests {
     Path.of(BazelRunfiles.rlocation(testDarWithSameDependenciesButDifferentTargetVersionPath))
   private val testTemplateDar = Path.of(BazelRunfiles.rlocation(testTemplateDarPath))
   private val testDependsOnBarTplDar = Path.of(BazelRunfiles.rlocation(testDependsOnBarTplDarPath))
-  private val dar = DarReader.assertReadArchiveFromFile(testDar.toFile)
+  private val dar = DarPackageIdReader.assertReadArchiveFromFile(testDar.toFile)
 
   private def interface(
       pkgId: String,
