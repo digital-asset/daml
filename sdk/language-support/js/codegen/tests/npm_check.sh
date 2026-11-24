@@ -18,7 +18,7 @@ set -eou pipefail
       { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
 # --- end runfiles.bash initialization v2 ---
 
-CODEGEN_JS=$(rlocation "$TEST_WORKSPACE/$1")
+CODEGEN=$(rlocation "$TEST_WORKSPACE/$1")
 NPM=$(rlocation "$TEST_WORKSPACE/$2")
 JQ=$(rlocation "$TEST_WORKSPACE/$3")
 DAR1=$(rlocation "$TEST_WORKSPACE/$4")
@@ -51,7 +51,7 @@ cat <<EOF > "$TMP_DIR"/package.json
 }
 EOF
 
-$CODEGEN_JS "$DAR1" -o "$TMP_DIR"/daml.js
+$CODEGEN js "$DAR1" -o "$TMP_DIR"/daml.js
 cd "$TMP_DIR"
 export PATH=$NODE_PATH:$PATH
 $NPM install
@@ -72,7 +72,7 @@ cat <<EOF > "$TMP_DIR"/package.json
 }
 EOF
 
-$CODEGEN_JS "$DAR2" -o "$TMP_DIR"/daml.js
+$CODEGEN js "$DAR2" -o "$TMP_DIR"/daml.js
 $NPM install
 PACKAGELOCK2=$($JQ '.packages | length' < "$TMP_DIR"/package-lock.json)
 

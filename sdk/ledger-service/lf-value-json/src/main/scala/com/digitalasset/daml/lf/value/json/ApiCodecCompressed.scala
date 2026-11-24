@@ -71,6 +71,8 @@ private[digitalasset] class ApiCodecCompressed(
       apiMapToJsValue(textMap)
     case genMap: V.ValueGenMap =>
       apiGenMapToJsValue(genMap)
+    case V.ValueUint256(_) =>
+      throw new UnsupportedOperationException("Uint256 values are not supported")
   }
 
   @throws[SerializationException]
@@ -290,6 +292,8 @@ private[digitalasset] class ApiCodecCompressed(
         val constructorName = cons(idx)
         V.ValueEnum(Some(id), constructorName)
       }
+      case TypeDestructor.SerializableTypeF.Uint256F =>
+        throw new UnsupportedOperationException("Uint256 values are not supported")
     }(fallback = deserializationError(s"Can't read ${value.prettyPrint} as ${typ.pretty}"))
   }
 

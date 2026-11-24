@@ -12,5 +12,5 @@ trait CodegenRunner {
   def configParser(isDpm: Boolean): OptionParser[Config]
   def configureFromArgs(args: Array[String], isDpm: Boolean): Option[Config]
   def configureFromPackageConfig(packageConfig: PackageConfig): Either[ConfigLoadingError, Config]
-  def generateCode(config: Config, damlVersion: String): Unit
+  def generateCode(config: Config, assemblyVersion: String, componentVersion: String): Unit
 }

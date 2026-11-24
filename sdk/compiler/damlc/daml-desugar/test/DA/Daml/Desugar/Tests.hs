@@ -8,7 +8,7 @@ module DA.Daml.Desugar.Tests(mkTestTree) where
 import Control.Monad (filterM)
 import DA.Daml.Desugar (desugar)
 import DA.Daml.LF.Ast.Version (devLfVersion)
-import DA.Daml.Options.Types (EnableScriptService(..), Options(..), defaultOptions)
+import DA.Daml.Options.Types (EnableScriptService(..), Options(..), defaultTestOptions)
 import Data.List.Extra (nubOrd)
 import Data.Text (Text)
 import System.Directory (doesFileExist, listDirectory, makeAbsolute)
@@ -35,7 +35,7 @@ mkTestTree testDir = do
 runDamlDesugar :: ComponentVersioned => FilePath -> IO Text
 runDamlDesugar input = desugar opts input
   where
-    opts = (defaultOptions Nothing)
+    opts = (defaultTestOptions Nothing)
       { optScriptService = EnableScriptService False
       -- The desugarer is unaffected by the version of LF so we arbitrarily test it with 2.dev.
       , optDamlLfVersion = devLfVersion

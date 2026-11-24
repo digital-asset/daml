@@ -372,7 +372,7 @@ runDamldocMany testfiles importPathM mScriptPackageData =
 -- The snd has a map from all the modules (including imported ones) to their docs.
 runDamldocMany' :: ComponentVersioned => [FilePath] -> Maybe FilePath -> Maybe ScriptPackageData -> IO ([Modulename], Map Modulename ModuleDoc)
 runDamldocMany' testfiles importPathM mScriptPackageData = do
-  let opts = (defaultOptions Nothing)
+  let opts = (defaultTestOptions Nothing)
         { optHaddock = Haddock True
         , optScriptService = EnableScriptService False
         , optImportPath = maybeToList importPathM

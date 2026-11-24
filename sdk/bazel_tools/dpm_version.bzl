@@ -4,12 +4,12 @@
 # THIS IS A GENERATED FILE
 # Bump using `bump-dpm.sh`
 
-DPM_VERSION = "1.0.15"
+DPM_VERSION = "1.1.3"
 
 DPM_SHA256 = {
-    "linux_arm64": "987eaef5af0e62af88b9b8aed83757ac2e96476f9dae523f0f63ca749b6cf834",
-    "darwin_amd64": "630c27dfd6142bba0eb33d1a9d58887bb553b32a6fd57dbbb6ac458a20f54f7d",
-    "darwin_arm64": "be769b4f012185c484eeac0577793ba0b8243f3711a8b2d6dec0d3b53135859a",
-    "linux_amd64": "a0ef4cd573948d4f7b414dc5d30d818c27c4e0dc82cd01f84533d143f619556c",
-    "windows_amd64": "e859b23c224f86ea321af38e32e5ae2de25912f4547e01e5f0d6a3089d6c9a11",
+    "linux_arm64": "b72def979212fce7b007f1201f6ca4c80d4e8248d22737072346f534c76ef8b6",
+    "darwin_amd64": "50b32373ad10fc286efc93567c44aa72d467dca50e24893d835ef2f288a07f3c",
+    "darwin_arm64": "27b85fc9bb1fd60c665f8890924da9e1dc9d3779e33d74abacb3e83ab6d3be52",
+    "linux_amd64": "1685ee8734d552b08217d9c2797bff3d7d292053aca135d8080d1fa836d48a6e",
+    "windows_amd64": "f9115c5351eb85646fd5a252e02574fba35598055c2cf548461f09d9a623632a",
 }

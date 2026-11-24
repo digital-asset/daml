@@ -211,24 +211,6 @@ Functions
   Note that the Admin API port must be provided when using this with a Canton Ledger
   Use ``--admin-port`` with the ``daml script`` CLI tool\.
 
-.. _function-daml-script-internal-questions-partymanagement-allocatereplicatedpartyon-96671:
-
-`allocateReplicatedPartyOn <function-daml-script-internal-questions-partymanagement-allocatereplicatedpartyon-96671_>`_
-  \: `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-stable-participantname-participantname-29562>` \-\> \[:ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-stable-participantname-participantname-29562>`\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-stable-script-script-12809>` `Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
-
-  Allocate a party with the given display name on the specified main participant using the party management service
-  and replicates it to the specified (possibly empty) list of additional participants\. Commands submitted by the
-  allocated party will be routed to the main participant\.
-
-.. _function-daml-script-internal-questions-partymanagement-allocatereplicatedpartywithhinton-30144:
-
-`allocateReplicatedPartyWithHintOn <function-daml-script-internal-questions-partymanagement-allocatereplicatedpartywithhinton-30144_>`_
-  \: `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> :ref:`PartyIdHint <type-daml-script-internal-questions-partymanagement-stable-partyidhint-partyidhint-41530>` \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-stable-participantname-participantname-29562>` \-\> \[:ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-stable-participantname-participantname-29562>`\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-stable-script-script-12809>` `Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
-
-  Allocate a party with the given display name and id hint on the specified main participant using the party
-  management service and replicates it to the specified (possibly empty) list of additional participants\. Commands
-  submitted by the allocated party will be routed to the main participant\.
-
 .. _function-daml-script-internal-questions-exceptions-throwanyexception-70957:
 
 `throwAnyException <function-daml-script-internal-questions-exceptions-throwanyexception-70957_>`_

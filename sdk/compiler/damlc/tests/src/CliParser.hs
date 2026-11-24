@@ -38,7 +38,7 @@ tests = testGroup
     , testCase "Bad flags in lax mode" $ parseSucceeds ["lax", "ide", "--badFlag"]
     , testCase "Damlc correctly ignores build flags in build-options when running daml test" $ assertDamlcParser ["test"] ["--output", "./myDar.dar"] Nothing
     , testCase "Damlc correctly errors on build flags in daml test cli flags" $ assertDamlcParser ["test", "--output", "./myDar.dar"] [] (Just "Invalid option `--output'")
-    , testCase "Damlc correctly errors on test flags in build-options when running daml build" $ assertDamlcParser ["build"] ["--save-coverage", "./here"] (Just "Invalid option `--save-coverage'")
+    , testCase "Damlc correctly errors on test flags in build-options when running daml build" $ assertDamlcParserRunIO ["build"] ["--save-coverage", "./here"] "Invalid option `--save-coverage'"
     , testCase "Damlc correctly uses build-options flags in daml test if it can" $ assertDamlcParserRunIO ["test"] ["--debug"] "DEBUG"
     ]
 
@@ -70,10 +70,7 @@ assertDamlcParser cliArgs damlYamlArgs mExpectedError = withCurrentTempDir $ do
 withDamlPackage :: IO a -> IO a
 withDamlPackage f = do
   cwd <- getCurrentDirectory
-  setEnv packagePathEnvVar cwd True
-  res <- f
-  unsetEnv packagePathEnvVar
-  pure res
+  withEnv [(packagePathEnvVar, Just cwd)] f
 
 -- Run the damlc parser with a set of command line flags/options, and a set of daml.yaml flags/options
 -- Run the resulting computation and assert a given string is part of stdout+stderr

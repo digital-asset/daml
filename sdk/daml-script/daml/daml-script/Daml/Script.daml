@@ -19,8 +19,58 @@ module Daml.Script
   , trySubmitResultAndTree
   , trySubmitTree
   -- Error types
-  , SubmitError (..)
-  , UpgradeErrorType (..)
+  , module Compatibility
+  , SubmitOptions (..)
+  , PackageId (..)
+  , AnySubmitError (..)
+  , AnyUpgradeErrorType (..)
+  , AnyCryptoErrorType (..)
+  , AnyExternalCallErrorType (..)
+  , IsSubmitError (..)
+  , IsUpgradeErrorType (..)
+  , IsCryptoErrorType (..)
+  , IsExternalCallErrorType (..)
+  , ContractNotFoundAdditionalInfo -- Don't export constructors, users should not be able to rely on the structure.
+  , ValidationFailedUpgradeError (..)
+  , TranslationFailedUpgradeError (..)
+  , AuthenticationFailedUpgradeError (..)
+  , MalformedByteEncodingCryptoError (..)
+  , MalformedKeyCryptoError (..)
+  , MalformedSignatureCryptoError (..)
+  , ContractNotFoundSubmitError (..)
+  , UnsupportedContractIdSubmitError (..)
+  , ContractKeyNotFoundSubmitError (..)
+  , UnresolvedPackageNameSubmitError (..)
+  , AuthorizationErrorSubmitError (..)
+  , ContractHashingErrorSubmitError (..)
+  , DisclosedContractKeyHashingErrorSubmitError (..)
+  , DuplicateContractKeySubmitError (..)
+  , InconsistentContractKeySubmitError (..)
+  , UnhandledExceptionSubmitError (..)
+  , UserErrorSubmitError (..)
+  , TemplatePreconditionViolatedSubmitError (..)
+  , CreateEmptyContractKeyMaintainersSubmitError (..)
+  , FetchEmptyContractKeyMaintainersSubmitError (..)
+  , WronglyTypedContractSubmitError (..)
+  , ContractDoesNotImplementInterfaceSubmitError (..)
+  , ContractDoesNotImplementRequiringInterfaceSubmitError (..)
+  , NonComparableValuesSubmitError (..)
+  , ContractIdInContractKeySubmitError (..)
+  , ContractIdComparabilitySubmitError (..)
+  , ValueNestingSubmitError (..)
+  , LocalVerdictLockedContractsSubmitError (..)
+  , LocalVerdictLockedKeysSubmitError (..)
+  , UpgradeErrorSubmitError (..)
+  , FailureStatusErrorSubmitError (..)
+  , CryptoErrorSubmitError (..)
+  , ExternalCallErrorSubmitError (..)
+  , EffectfulRollbackErrorSubmitError (..)
+  , DevErrorSubmitError (..)
+  , UnknownErrorSubmitError (..)
+  , TruncatedErrorSubmitError (..)
+  , PreparationFailedExternalCallError (..)
+  , ExecutionFailedExternalCallError (..)
+  , InvalidOutputExternalCallError (..)
   -- Submit options
   , actAs
   , readAs
@@ -134,11 +184,8 @@ module Daml.Script
   , -- Upgrades features
     PackageId (..)
   , packagePreference
-
-  , -- Backwards compatibility pattern synonyms for SubmitError
-    module Daml.Script.Internal.Questions.Submit.Error.Compatibility
   ) where
 
 import Daml.Script.Internal.LowLevel
 import Daml.Script.Internal.Questions
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility
+import Daml.Script.Internal.Questions.Submit.Error.Compatibility as Compatibility

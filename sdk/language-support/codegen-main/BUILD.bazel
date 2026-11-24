@@ -19,9 +19,12 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     scala_deps = [
         "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:io_circe_circe_core",
+        "@maven//:io_circe_circe_yaml",
+        "@maven//:io_circe_circe_yaml_common",
     ],
     visibility = ["//visibility:public"],
     runtime_deps = [
@@ -42,9 +45,12 @@ da_scala_binary(
     main_class = "com.daml.codegen.CodegenMain",
     scala_deps = [
         "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:io_circe_circe_core",
+        "@maven//:io_circe_circe_yaml",
+        "@maven//:io_circe_circe_yaml_common",
     ],
     visibility = ["//visibility:public"],
     deps = [

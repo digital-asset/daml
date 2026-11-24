@@ -9,10 +9,16 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
-## Until 2026-10-27 (Exclusive)
+## Until 2026-12-01 (Exclusive)
 - `DA.Numeric.roundNumeric` no longer fails with `fromSome: None` when asked to
   round to more decimal places than the scale of its argument. It now returns
   the value unchanged.
+
+## Until 2026-11-24 (Exclusive)
+- Add support for package-ids in the `upgrades` daml.yaml field and CLI flag
+
+## Until 2026-11-10 (Exclusive)
+- Fixed Js Codegen @daml/types version generation
 
 ## Until 2026-10-13 (Exclusive)
 - The following daml-script libraries are no longer published to Maven Central:

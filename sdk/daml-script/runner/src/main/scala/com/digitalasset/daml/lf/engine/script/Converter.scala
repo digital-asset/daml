@@ -547,6 +547,8 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
         // TODO #15857
         // Add support for the `IdentityProviderAdmin` in the Daml Script
         sys.error("IdentityProviderAdmin user right has not been supported yet")
+      case UserRight.CanDebitTrafficFrom(_) | UserRight.CanDebitTrafficFromAnyAccount =>
+        sys.error(s"$right user right has not been supported yet")
       case UserRight.ParticipantAdmin => toRight("ParticipantAdmin", ValueUnit)
       case UserRight.CanActAs(p) => toRight("CanActAs", ValueParty(p))
       case UserRight.CanReadAs(p) => toRight("CanReadAs", ValueParty(p))

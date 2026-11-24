@@ -3,17 +3,179 @@
 {-# LANGUAGE InstanceSigs #-}
 
 module Daml.Script.Internal.Questions.Submit
-  ( module Daml.Script.Internal.Questions.Submit
-  , module Daml.Script.Internal.Questions.Submit.Error
-  , module Daml.Script.Internal.Questions.Submit.Error.Compatibility
-  , Stable.SubmitOptions -- Do not export Stable SubmitOptions constructor, as it is internal
+  ( actAs
+  , readAs
+  , discloseMany
+  , disclose
+  , packagePreference
+  , prefetchKeys
+  , ConcurrentSubmits
+  , concurrently
+  , submitResultAndTree
+  , trySubmitResultAndTree
+  , submitWithError
+  , submit
+  , submitWithOptions
+  , submitTree
+  , trySubmit
+  , trySubmitTree
+  , submitMustFail
+  , submitMustFailWithOptions
+  , submitMulti
+  , submitMultiMustFail
+  , submitTreeMulti
+  , trySubmitMulti
+  , trySubmitConcurrently
+  , submitWithDisclosures
+  , submitWithDisclosuresMustFail
+  , module SubmitError
+  , Compatibility.coid
+  , Compatibility.srcTemplateId
+  , Compatibility.dstTemplateId
+  , Compatibility.createArg
+  , Compatibility.contractId
+  , Compatibility.templateId
+  , Compatibility.contractKey
+  , Stable.SubmitOptions (SubmitOptions)
   , PackageId (..)
+  , SubmitError
+  , UpgradeErrorType
+  , CryptoErrorType
+  , ExternalCallErrorType
+  , DevErrorType
+  , AnySubmitError
+      ( UnsupportedContractId
+      , ContractNotFound
+      , ContractKeyNotFound
+      , UnresolvedPackageName
+      , AuthorizationError
+      , ContractHashingError
+      , DisclosedContractKeyHashingError
+      , DuplicateContractKey
+      , InconsistentContractKey
+      , UnhandledException
+      , UserError
+      , TemplatePreconditionViolated
+      , CreateEmptyContractKeyMaintainers
+      , FetchEmptyContractKeyMaintainers
+      , WronglyTypedContract
+      , ContractDoesNotImplementInterface
+      , ContractDoesNotImplementRequiringInterface
+      , NonComparableValues
+      , ContractIdInContractKey
+      , ContractIdComparability
+      , ValueNesting
+      , LocalVerdictLockedContracts
+      , LocalVerdictLockedKeys
+      , UpgradeError
+      , FailureStatusError
+      , CryptoError
+      , ExternalCallError
+      , EffectfulRollbackError
+      , DevError
+      , UnknownError
+      , TruncatedError
+      , -- Fields must be explicitly exported for pattern synonyms
+        unknownContractIds
+      , additionalDebuggingInfo
+      , unknownContractId
+      , cknfContractKey
+      , packageName
+      , authorizationErrorMessage
+      , cheContractId
+      , cheDstTemplateId
+      , cheCreateArg
+      , cheErrorMessage
+      , dckheContractId
+      , expectedKey
+      , givenKeyHash
+      , duplicateContractKey
+      , ickContractKey
+      , exc
+      , userErrorMessage
+      , invalidTemplate
+      , failedTemplateKey
+      , wtcContractId
+      , expectedTemplateId
+      , actualTemplateId
+      , cdniiContractId
+      , cdniiTemplateId
+      , interfaceId
+      , cdniriContractId
+      , cdniriTemplateId
+      , requiredInterfaceId
+      , requiringInterfaceId
+      , globalExistingContractId
+      , limit
+      , localVerdictLockedContracts
+      , localVerdictLockedKeys
+      , ueErrorType
+      , ueErrorMessage
+      , failureStatus
+      , cryptoErrorType
+      , cryptoErrorMessage
+      , externalCallErrorType
+      , extensionId
+      , functionId
+      , externalCallErrorMessage
+      , effectfulRollbackErrorMsg
+      , devErrorType
+      , devErrorMessage
+      , unknownErrorMessage
+      , truncatedErrorType
+      , truncatedErrorMessage
+      )
+  , AnyUpgradeErrorType
+      ( ValidationFailed
+      , TranslationFailed
+      , AuthenticationFailed
+      , -- Fields must be explicitly exported for pattern synonyms
+        vfCoid
+      , vfSrcTemplateId
+      , vfDstTemplateId
+      , srcPackageName
+      , dstPackageName
+      , originalSignatories
+      , originalNonSignatoryStakeholders
+      , originalKeyOpt
+      , recomputedSignatories
+      , recomputedNonSignatoryStakeholders
+      , recomputedKeyOpt
+      , mCoid
+      , tfSrcTemplateId
+      , tfDstTemplateId
+      , tfCreateArg
+      , afCoid
+      , afSrcTemplateId
+      , afDstTemplateId
+      , afCreateArg
+      )
+  , AnyCryptoErrorType
+      ( MalformedByteEncoding
+      , MalformedKey
+      , MalformedSignature
+      , -- Fields must be explicitly exported for pattern synonyms
+        value
+      , keyValue
+      , signatureValue
+      )
+  , AnyExternalCallErrorType
+      ( PreparationFailed
+      , ExecutionFailed
+      , InvalidOutput
+      )
+  , AnyDevErrorType
+      ( ChoiceGuardFailed
+      , UnknownNewFeature
+      )
+  , module Compatibility
   ) where
 
 import Daml.Script.Internal.LowLevel
 import Daml.Script.Internal.Questions.Commands
-import Daml.Script.Internal.Questions.Submit.Error
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility
+import Daml.Script.Internal.Questions.Submit.Error (AnySubmitError, AnyUpgradeErrorType, AnyCryptoErrorType, AnyExternalCallErrorType, AnyDevErrorType)
+import Daml.Script.Internal.Questions.Submit.Error as SubmitError hiding (AnySubmitError, AnyUpgradeErrorType, AnyCryptoErrorType, AnyExternalCallErrorType, AnyDevErrorType)
+import Daml.Script.Internal.Questions.Submit.Error.Compatibility as Compatibility
 import qualified Daml.Script.Internal.Questions.Submit.Stable.SubmitOptions as Stable
 import Daml.Script.Internal.Questions.Submit.Stable.PackageId
 import Daml.Script.Internal.Questions.TransactionTree

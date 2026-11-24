@@ -625,6 +625,16 @@ tests TestArgs{..} =
         , "pure1 x = action1 (pure x)"
         ]
 
+    , simpleImportTest "Newtypes remain newtypes"
+        [ "module Lib where"
+        , "newtype MyNewtype = MyNewtype Int"
+        ]
+        [ "{-# LANGUAGE DerivingStrategies #-}"
+        , "module Main where"
+        , "import Lib"
+        , "deriving newtype instance Additive MyNewtype"
+        ]
+
     , testCaseSteps "Colliding package names" $ \step -> withTempDir $ \tmpDir -> do
           forM_ ["1", "2"] $ \version -> do
               step ("Building 'lib" <> version <> "'")
@@ -1772,6 +1782,22 @@ tests TestArgs{..} =
             , "import Base"
             , "usePattern : (Int, Int) -> Int"
             , "usePattern t = tSnd t"
+            ]
+        ]
+    
+    , dataDependenciesTest "Using explicitly pattern synonym constructor export"
+        [
+            (,) "Base.daml"
+            [ "module Base (MyType (MyTypePattern)) where"
+            , "data MyType = MyType"
+            , "pattern MyTypePattern = MyType"
+            ]
+        ]
+        [   (,) "Main.daml"
+            [ "module Main where"
+            , "import Base (MyType (..))"
+            , "usePattern : MyType -> MyType"
+            , "usePattern MyTypePattern = MyTypePattern"
             ]
         ]
 

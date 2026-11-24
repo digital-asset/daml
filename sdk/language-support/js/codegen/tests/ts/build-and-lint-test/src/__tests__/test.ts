@@ -3,7 +3,6 @@
 
 import { ChildProcess, spawn } from "child_process";
 import { promises as fs } from "fs";
-import waitOn from "wait-on";
 /**
  * TODO(#21835): reactivate TS tests on top of the openapi instead of the @daml/ledger
 import { encode } from "jwt-simple";
@@ -100,6 +99,20 @@ const spawnJvm = (
   return proc;
 };
 
+// Resolves once `path` exists and its size has stopped changing.
+const waitForFile = async (path: string): Promise<void> => {
+  let lastSize = -1;
+  for (;;) {
+    const size = await fs.stat(path).then(
+      stats => stats.size,
+      () => -1,
+    );
+    if (size >= 0 && size === lastSize) return;
+    lastSize = size;
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+};
+
 beforeAll(async () => {
   console.log("build-and-lint-1.0.0 (" + buildAndLint.packageId + ") loaded");
   sandboxProcess = spawnJvm(
@@ -120,7 +133,7 @@ beforeAll(async () => {
     ],
     ["-Dpekko.http.server.request-timeout=60s"],
   );
-  await waitOn({ resources: [`file:${COMPLETION_FILE}`] });
+  await waitForFile(COMPLETION_FILE);
   const sandboxPortData = await fs.readFile(SANDBOX_PORT_FILE, {
     encoding: "utf8",
   });
@@ -130,7 +143,7 @@ beforeAll(async () => {
   if (!sandboxPort) throw "Invalid port file";
   console.log("Sandbox listening on port " + sandboxPort.toString());
 
-  await waitOn({ resources: [`file:${JSON_API_PORT_FILE}`] });
+  await waitForFile(JSON_API_PORT_FILE);
   const jsonApiPortData = await fs.readFile(JSON_API_PORT_FILE, {
     encoding: "utf8",
   });

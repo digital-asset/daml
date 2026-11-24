@@ -176,7 +176,7 @@ jobs:
               BRANCH="notices-update-$(Build.BuildId)"
               cp "$(Pipeline.Workspace)/notices/NOTICES" NOTICES
               git add NOTICES
-              open_superseding_pr "$BRANCH" "update NOTICES file" "" "$(Build.SourceBranchName)" "ci-generated-notices-update"
+              open_superseding_pr "$BRANCH" "update NOTICES file" "" "$(Build.SourceBranchName)" "ci-generated-notices-update" "no-release-notes"
               trigger_azure $AZURE_DEVOPS_EXT_PAT PRs --branch $BRANCH
           fi
         displayName: 'Open PR to update NOTICES file'
@@ -255,7 +255,7 @@ jobs:
                   if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
                       echo "Branch $branch already exists on origin (opened by a previous run), not opening another PR."
                   else
-                      open_superseding_pr "$branch" "update canton to $version" "$body" "$(Build.SourceBranchName)" "ci-generated-canton-upgrade"
+                      open_superseding_pr "$branch" "update canton to $version" "$body" "$(Build.SourceBranchName)" "ci-generated-canton-upgrade" "no-release-notes"
                       az pipelines build queue --branch "$branch" \
                                                --definition-name "PRs" \
                                                --org "https://dev.azure.com/digitalasset" \

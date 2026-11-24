@@ -33,8 +33,12 @@ object JsCodegenRunner extends CodegenRunner {
       verbosity = verbosity,
     )
 
-  override def generateCode(config: JsCodeGenConf, damlVersion: String): Unit =
-    JsCodeGen.run(config, damlVersion)
+  override def generateCode(
+      config: JsCodeGenConf,
+      assemblyVersion: String,
+      componentVersion: String,
+  ): Unit =
+    JsCodeGen.run(config, assemblyVersion, componentVersion)
 
   private def parserName(isDpm: Boolean): String = if (isDpm) "codegen-js" else "codegen"
 

@@ -21,17 +21,18 @@ module Daml.Script.Internal
   , unvetPackages
   , unvetPackagesOnParticipant
 
-  , -- Party Management
-    allocateReplicatedPartyOn
-  , allocateReplicatedPartyWithHintOn
-
     -- Exceptions
   , throwAnyException
 
   , -- Internal submit error
     ContractNotFoundAdditionalInfo
   , isNotActive
+
+  , IsDevErrorType (..)
   , DevErrorType (..)
+  , AnyDevErrorType (..)
+  , ChoiceGuardFailedDevError (..)
+  , UnknownNewFeatureDevError (..)
 
   , -- Deprecated. Should be removed soon
     trySubmitConcurrently

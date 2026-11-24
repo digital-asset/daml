@@ -3,6 +3,7 @@
 
 package com.digitalasset.daml.lf.codegen
 
+import com.daml.buildinfo.BuildInfo
 import com.digitalasset.daml.lf.codegen.JsCodeGenConf
 import com.typesafe.scalalogging.StrictLogging
 
@@ -14,7 +15,7 @@ private[codegen] object JsCodeGenMain extends StrictLogging {
       JsCodeGenConf.parse(args, parserName = "codegen-js") match {
         case Some(conf) =>
           val damlVersion = sys.env.getOrElse("DAML_SDK_VERSION", "0.0.0")
-          JsCodeGen.run(conf, damlVersion)
+          JsCodeGen.run(conf, damlVersion, BuildInfo.Version)
         case None =>
           throw new IllegalArgumentException(
             s"Invalid command line arguments: ${args.mkString(" ")}"

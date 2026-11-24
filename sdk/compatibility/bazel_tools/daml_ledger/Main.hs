@@ -25,8 +25,6 @@ import Test.Tasty (TestTree,askOption,defaultMainWithIngredients,defaultIngredie
 import Test.Tasty.Options (IsOption(..), OptionDescription(..), mkOptionCLParser)
 import Test.Tasty.HUnit
 import qualified Bazel.Runfiles
-import qualified Data.Aeson as Aeson
-import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Web.JWT as JWT
 
@@ -49,7 +47,7 @@ withSandbox getTools mbSecret f =
               let portFile = tmpDir </> "portfile"
               devNull <- getDevNull
               portArgs <- mapM (\argName-> fmap ((<>) argName . show) getFreePort) $ portArgNames isPlatformDpm
-              let secretArgs = concat [["-C", "canton.participants.sandbox.ledger-api.auth-services.0.type=unsafe-jwt-hmac-256", "-C", "canton.participants.sandbox.ledger-api.auth-services.0.secret=" <> secret] | Just secret <- [mbSecret]]
+              let secretArgs = concat [["-C", "canton.participants.sandbox.ledger-api.auth-services.0.type=unsafe-jwt-hmac-256", "-C", "canton.participants.sandbox.ledger-api.auth-services.0.secret=" <> secret, "-C", "canton.participants.sandbox.ledger-api.auth-services.0.target-audience=" <> testAudience] | Just secret <- [mbSecret]]
               let args = map (tweakArg portFile) (platformArgs <> secretArgs <> portArgs)
               mask $ \unmask -> do
                   ph@(_, _, _, handle) <- createProcess (proc platformBinary args) { std_out = UseHandle devNull, create_group = True }
@@ -228,19 +226,17 @@ authenticatedUploadTest sdkVersion platformVersion getTools = do
 
 makeSignedJwt :: String -> String -> Maybe JWT.NumericDate -> String
 makeSignedJwt sharedSecret user expiration = do
-    let urc =
-            JWT.ClaimsMap $
-            Map.fromList
-                [ ("scope", Aeson.String "daml_ledger_api")
-                ]
     let cs = mempty {
         JWT.sub = JWT.stringOrURI $ T.pack user
-        , JWT.unregisteredClaims = urc
+        , JWT.aud = Right . pure <$> JWT.stringOrURI (T.pack testAudience)
         , JWT.exp = expiration
     }
     let key = JWT.hmacSecret $ T.pack sharedSecret
     let text = JWT.encodeSigned key mempty cs
     T.unpack text
+
+testAudience :: String
+testAudience = "https://daml.com/jwt/aud/participant/daml-compat-test"
 
 makeSignedAdminJwt :: String -> Maybe JWT.NumericDate -> String
 makeSignedAdminJwt sharedSecret expiration = makeSignedJwt sharedSecret "participant_admin" expiration
@@ -253,6 +249,9 @@ deriveBuildOptions :: SdkVersion -> PlatformVersion -> [String]
 -- LF 2.3 support added in 3.5, so when running 3.5+ SDK with <3.5 platform, we use LF 2.2
 deriveBuildOptions sdkVersion platformVersion |
   sdkVersion >= semverFromTextUnsafe SdkVersion "3.5.0" && platformVersion < semverFromTextUnsafe PlatformVersion "3.5.0" = ["  - --target=2.2"]
+-- LF 2.4 support added in 3.6 and became the default in 3.9, so when running 3.9+ SDK with <3.6 platform, we use LF 2.3
+deriveBuildOptions sdkVersion platformVersion |
+  sdkVersion >= semverFromTextUnsafe SdkVersion "3.9.0-snapshot" && platformVersion < semverFromTextUnsafe PlatformVersion "3.6.0" = ["  - --target=2.3"]
 deriveBuildOptions _ _ = []
 
 -- | Write `daml.yaml` and `Main.daml` files in the current directory.

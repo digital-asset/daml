@@ -223,7 +223,7 @@ expectScriptSuccess xs vr pred = case find ((vr ==) . fst) xs of
       assertFailure $ "Predicate for " <> show vr <> " failed on " <> show r
 
 options :: Options
-options = defaultOptions (Just lfVersion)
+options = defaultTestOptions (Just lfVersion)
 
 
 runScripts :: ComponentVersioned => SS.Handle -> [T.Text] -> IO [(VirtualResource, Either T.Text T.Text)]

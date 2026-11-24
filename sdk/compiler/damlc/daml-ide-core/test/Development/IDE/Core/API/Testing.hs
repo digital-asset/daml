@@ -145,7 +145,7 @@ runShakeTest = runShakeTestOpts id
 -- | Run shake test on freshly initialised shake service, with custom options.
 runShakeTestOpts :: ComponentVersioned => (Daml.Options -> Daml.Options) -> Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError ShakeTestResults)
 runShakeTestOpts fOpts mbScriptService (ShakeTest m) = do
-    let options = fOpts (defaultOptions Nothing)
+    let options = fOpts (defaultTestOptions Nothing)
             { optDlintUsage = DlintEnabled DlintOptions
                 { dlintRulesFile = DefaultDlintRulesFile
                 , dlintHintFiles = NoDlintHintFiles

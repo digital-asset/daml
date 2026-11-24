@@ -14,7 +14,7 @@ jobs:
     name: ubuntu_20_04
     demands: assignment -equals default
   variables:
-    blackduck_script_sha: 371e805ad4a140ca3ee564882637da718a056b47
+    blackduck_script_sha: 3a0a35021a1c8f462895f27f1ba4ec414e75bc2e
   steps:
   - checkout: self
     clean: true
@@ -208,7 +208,7 @@ jobs:
         sed -i "s|blackduck_script_sha: $current|blackduck_script_sha: $latest|" ../ci/blackduck.yml
         git add ../ci/blackduck.yml
         
-        open_pr "$branch" "bump blackduck script to ${latest:0:8}" "" "" "$(Build.SourceBranchName)"
+        open_pr "$branch" "bump blackduck script to ${latest:0:8}" "" "" "$(Build.SourceBranchName)" "no-release-notes"
         trigger_azure $AZURE_DEVOPS_EXT_PAT "PRs" --branch $branch
       fi
     displayName: 'Bump Blackduck Script if needed'

@@ -8,4 +8,4 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 DAR=$DIR/daml/.daml/dist/daml-1.0.0.dar
 GEN=$DIR/ts/generated/src/daml
 
-fswatch -o $DAR | xargs -0 -I {} bazel run //language-support/js/codegen -- -o $GEN $DAR
+fswatch -o $DAR | xargs -0 -I {} bazel run //language-support/codegen-main -- js -o $GEN $DAR

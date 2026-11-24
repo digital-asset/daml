@@ -2,7 +2,7 @@
 
 This is a code generator for a TypeScript interface to a Daml package. To run it, you must execute
 ```console
-$ bazel run //language-support/js/codegen -- --help
+$ bazel run //language-support/codegen-main -- js --help
 Usage: codegen-js [options] <DAR-file>...
 
 Code generator for the Daml ledger bindings.
@@ -66,7 +66,7 @@ EOF
 cd ~/digital-asset/daml/sdk
 bazel build //language-support/js/daml-types:npm_package
 cp -R bazel-bin/language-support/js/daml-types/npm_package ~/tmp/codegen-js/daml-types
-bazel run //language-support/js/codegen -- -o ~/tmp/codegen-js/daml2js ~/my-project/*.dar
+bazel run //language-support/codegen-main -- js -o ~/tmp/codegen-js/daml2js ~/my-project/*.dar
 ```
 
 ## What `codegen-js` generates

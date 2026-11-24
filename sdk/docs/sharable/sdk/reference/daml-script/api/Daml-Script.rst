@@ -11,28 +11,6 @@ The Daml Script testing library\.
 Typeclasses
 -----------
 
-.. _class-daml-script-internal-questions-submit-issubmitoptions-64211:
-
-**class** `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options **where**
-
-  Defines a type that can be transformed into a SubmitOptions
-
-  .. _function-daml-script-internal-questions-submit-tosubmitoptions-99319:
-
-  `toSubmitOptions <function-daml-script-internal-questions-submit-tosubmitoptions-99319_>`_
-    \: options \-\> `SubmitOptions <type-daml-script-internal-questions-submit-stable-submitoptions-submitoptions-27150_>`_
-
-.. _class-daml-script-internal-questions-submit-scriptsubmit-55101:
-
-**class** `Applicative <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-prelude-applicative-9257>`_ script \=\> `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script **where**
-
-  Defines an applicative that can run transaction submissions\. Usually this is simply ``Script``\.
-
-  .. _function-daml-script-internal-questions-submit-liftsubmission-99954:
-
-  `liftSubmission <function-daml-script-internal-questions-submit-liftsubmission-99954_>`_
-    \: `HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `ConcurrentSubmits <type-daml-script-internal-questions-submit-concurrentsubmits-82688_>`_ a \-\> script a
-
 .. _class-daml-script-internal-questions-submit-error-issubmiterror-52591:
 
 **class** `IsSubmitError <class-daml-script-internal-questions-submit-error-issubmiterror-52591_>`_ e **where**
@@ -298,24 +276,6 @@ Data Types
 
   Applicative that allows for multiple concurrent transaction submissions
   See ``concurrently`` for usage of this type\.
-
-  .. _constr-daml-script-internal-questions-submit-concurrentsubmits-49827:
-
-  `ConcurrentSubmits <constr-daml-script-internal-questions-submit-concurrentsubmits-49827_>`_
-
-    .. list-table::
-       :widths: 15 10 30
-       :header-rows: 1
-
-       * - Field
-         - Type
-         - Description
-       * - submits
-         - \[Submission\]
-         -
-       * - continue
-         - \[`Either <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `SubmitError <type-daml-script-internal-questions-submit-error-compatibility-submiterror-33824_>`_ (\[CommandResult\], `TransactionTree <type-daml-script-internal-questions-transactiontree-stable-transactiontree-transactiontree-42393_>`_)\] \-\> a
-         -
 
 .. _type-daml-script-internal-questions-submit-stable-packageid-packageid-23442:
 
@@ -1955,28 +1915,28 @@ Functions
 .. _function-daml-script-internal-questions-submit-submitresultandtree-13546:
 
 `submitResultAndTree <function-daml-script-internal-questions-submit-submitresultandtree-13546_>`_
-  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script (a, `TransactionTree <type-daml-script-internal-questions-transactiontree-stable-transactiontree-transactiontree-42393_>`_)
+  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, ScriptSubmit script, IsSubmitOptions options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script (a, `TransactionTree <type-daml-script-internal-questions-transactiontree-stable-transactiontree-transactiontree-42393_>`_)
 
   Equivalent to ``submit`` but returns the result and the full transaction tree\.
 
 .. _function-daml-script-internal-questions-submit-trysubmitresultandtree-33682:
 
 `trySubmitResultAndTree <function-daml-script-internal-questions-submit-trysubmitresultandtree-33682_>`_
-  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script (`Either <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `SubmitError <type-daml-script-internal-questions-submit-error-compatibility-submiterror-33824_>`_ (a, `TransactionTree <type-daml-script-internal-questions-transactiontree-stable-transactiontree-transactiontree-42393_>`_))
+  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, ScriptSubmit script, IsSubmitOptions options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script (`Either <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `SubmitError <type-daml-script-internal-questions-submit-error-compatibility-submiterror-33824_>`_ (a, `TransactionTree <type-daml-script-internal-questions-transactiontree-stable-transactiontree-transactiontree-42393_>`_))
 
   Equivalent to ``trySubmit`` but returns the result and the full transaction tree\.
 
 .. _function-daml-script-internal-questions-submit-submitwitherror-52958:
 
 `submitWithError <function-daml-script-internal-questions-submit-submitwitherror-52958_>`_
-  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script `SubmitError <type-daml-script-internal-questions-submit-error-compatibility-submiterror-33824_>`_
+  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, ScriptSubmit script, IsSubmitOptions options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script `SubmitError <type-daml-script-internal-questions-submit-error-compatibility-submiterror-33824_>`_
 
   Equivalent to ``submitMustFail`` but returns the error thrown\.
 
 .. _function-daml-script-internal-questions-submit-submit-5889:
 
 `submit <function-daml-script-internal-questions-submit-submit-5889_>`_
-  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script a
+  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, ScriptSubmit script, IsSubmitOptions options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script a
 
   ``submit p cmds`` submits the commands ``cmds`` as a single transaction
   from party ``p`` and returns the value returned by ``cmds``\.
@@ -1988,7 +1948,7 @@ Functions
 .. _function-daml-script-internal-questions-submit-submitwithoptions-56152:
 
 `submitWithOptions <function-daml-script-internal-questions-submit-submitwithoptions-56152_>`_
-  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script a
+  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, ScriptSubmit script, IsSubmitOptions options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script a
 
   .. warning::
     **DEPRECATED**\:
@@ -1998,14 +1958,14 @@ Functions
 .. _function-daml-script-internal-questions-submit-submittree-5925:
 
 `submitTree <function-daml-script-internal-questions-submit-submittree-5925_>`_
-  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script `TransactionTree <type-daml-script-internal-questions-transactiontree-stable-transactiontree-transactiontree-42393_>`_
+  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, ScriptSubmit script, IsSubmitOptions options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script `TransactionTree <type-daml-script-internal-questions-transactiontree-stable-transactiontree-transactiontree-42393_>`_
 
   Equivalent to ``submit`` but returns the full transaction tree\.
 
 .. _function-daml-script-internal-questions-submit-trysubmit-23693:
 
 `trySubmit <function-daml-script-internal-questions-submit-trysubmit-23693_>`_
-  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script (`Either <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `SubmitError <type-daml-script-internal-questions-submit-error-compatibility-submiterror-33824_>`_ a)
+  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, ScriptSubmit script, IsSubmitOptions options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script (`Either <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `SubmitError <type-daml-script-internal-questions-submit-error-compatibility-submiterror-33824_>`_ a)
 
   Submit a transaction and recieve back either the result, or a ``SubmitError``\.
   In the majority of failures, this will not crash at runtime\.
@@ -2013,14 +1973,14 @@ Functions
 .. _function-daml-script-internal-questions-submit-trysubmittree-68085:
 
 `trySubmitTree <function-daml-script-internal-questions-submit-trysubmittree-68085_>`_
-  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script (`Either <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `SubmitError <type-daml-script-internal-questions-submit-error-compatibility-submiterror-33824_>`_ `TransactionTree <type-daml-script-internal-questions-transactiontree-stable-transactiontree-transactiontree-42393_>`_)
+  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, ScriptSubmit script, IsSubmitOptions options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script (`Either <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `SubmitError <type-daml-script-internal-questions-submit-error-compatibility-submiterror-33824_>`_ `TransactionTree <type-daml-script-internal-questions-transactiontree-stable-transactiontree-transactiontree-42393_>`_)
 
   Equivalent to ``trySubmit`` but returns the full transaction tree\.
 
 .. _function-daml-script-internal-questions-submit-submitmustfail-63662:
 
 `submitMustFail <function-daml-script-internal-questions-submit-submitmustfail-63662_>`_
-  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script ()
+  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, ScriptSubmit script, IsSubmitOptions options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script ()
 
   ``submitMustFail p cmds`` submits the commands ``cmds`` as a single transaction
   from party ``p``\.
@@ -2031,7 +1991,7 @@ Functions
 .. _function-daml-script-internal-questions-submit-submitmustfailwithoptions-20017:
 
 `submitMustFailWithOptions <function-daml-script-internal-questions-submit-submitmustfailwithoptions-20017_>`_
-  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script ()
+  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, ScriptSubmit script, IsSubmitOptions options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script ()
 
   .. warning::
     **DEPRECATED**\:
@@ -2041,7 +2001,7 @@ Functions
 .. _function-daml-script-internal-questions-submit-submitmulti-45107:
 
 `submitMulti <function-daml-script-internal-questions-submit-submitmulti-45107_>`_
-  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script) \=\> \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script a
+  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, ScriptSubmit script) \=\> \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script a
 
   .. warning::
     **DEPRECATED**\:
@@ -2058,7 +2018,7 @@ Functions
 .. _function-daml-script-internal-questions-submit-submitmultimustfail-77808:
 
 `submitMultiMustFail <function-daml-script-internal-questions-submit-submitmultimustfail-77808_>`_
-  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script) \=\> \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script ()
+  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, ScriptSubmit script) \=\> \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script ()
 
   .. warning::
     **DEPRECATED**\:
@@ -2074,7 +2034,7 @@ Functions
 .. _function-daml-script-internal-questions-submit-submittreemulti-4879:
 
 `submitTreeMulti <function-daml-script-internal-questions-submit-submittreemulti-4879_>`_
-  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script) \=\> \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script `TransactionTree <type-daml-script-internal-questions-transactiontree-stable-transactiontree-transactiontree-42393_>`_
+  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, ScriptSubmit script) \=\> \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script `TransactionTree <type-daml-script-internal-questions-transactiontree-stable-transactiontree-transactiontree-42393_>`_
 
   .. warning::
     **DEPRECATED**\:
@@ -2089,7 +2049,7 @@ Functions
 .. _function-daml-script-internal-questions-submit-trysubmitmulti-31939:
 
 `trySubmitMulti <function-daml-script-internal-questions-submit-trysubmitmulti-31939_>`_
-  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script) \=\> \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script (`Either <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `SubmitError <type-daml-script-internal-questions-submit-error-compatibility-submiterror-33824_>`_ a)
+  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, ScriptSubmit script) \=\> \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-stable-commands-commands-95086_>`_ a \-\> script (`Either <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `SubmitError <type-daml-script-internal-questions-submit-error-compatibility-submiterror-33824_>`_ a)
 
   .. warning::
     **DEPRECATED**\:
