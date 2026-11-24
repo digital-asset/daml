@@ -1,12 +1,12 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-# -- dpm (Daml Package Manager) --
-DPM_VERSION = "1.1.1"
+DPM_VERSION = "1.1.3"
+
 DPM_SHA256 = {
-    "linux_arm64": "e1d8df93668e3dd624e1f2714d1a39276774a52ed7fd927989f7dc71827615b8",
-    "darwin_amd64": "a28dac29cf72bb705850f79aa7d9ee9c545c5104689dae02da4145bad129996f",
-    "darwin_arm64": "5769fe7c6dd76301dc9dfa38a64302e806715961eedbc3bf70b1c4fa8e1d43a7",
-    "linux_amd64": "d4873a7229561dd6d07c256b7efe66f10943232494739e9ab53c476356cd42b3",
-    "windows_amd64": "c7fbc2a604eb69505a23ee993f880df88ade94a8a4b08c7d2aa240946a081b36",
+    "linux_arm64": "b72def979212fce7b007f1201f6ca4c80d4e8248d22737072346f534c76ef8b6",
+    "darwin_amd64": "50b32373ad10fc286efc93567c44aa72d467dca50e24893d835ef2f288a07f3c",
+    "darwin_arm64": "27b85fc9bb1fd60c665f8890924da9e1dc9d3779e33d74abacb3e83ab6d3be52",
+    "linux_amd64": "1685ee8734d552b08217d9c2797bff3d7d292053aca135d8080d1fa836d48a6e",
+    "windows_amd64": "f9115c5351eb85646fd5a252e02574fba35598055c2cf548461f09d9a623632a",
 }
