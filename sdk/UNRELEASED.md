@@ -9,6 +9,9 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+## Until 2026-11-24 (Exclusive)
+- Add support for package-ids in the `upgrades` daml.yaml field and CLI flag
+
 ## Until 2026-11-10 (Exclusive)
 - Fixed Js Codegen @daml/types version generation
 

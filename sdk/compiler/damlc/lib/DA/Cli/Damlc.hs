@@ -143,9 +143,12 @@ import DA.Daml.Options.Types (EnableScriptService(..),
 import DA.Daml.Package.Config (MultiPackageConfigFields(..),
                                PackageConfigFields(..),
                                DependencySpec(..),
+                               UpgradedPackage(..),
+                               canonicalizeUpgradePackage,
                                checkPkgConfig,
                                findMultiPackageConfig,
                                getSimplePathOrName,
+                               upgradedPackagePath,
                                withPackageConfig,
                                withMultiPackageConfig)
 import DA.Daml.Resolution.Config (ValidPackageResolution (..), ResolutionError (..), DPMUnsupportedError (..), findPackageResolutionData, getResolutionData)
@@ -181,7 +184,7 @@ import qualified Data.HashSet as HashSet
 import Data.List (isPrefixOf, isInfixOf)
 import Data.List.Extra (elemIndices, nubOrd, nubSort)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (catMaybes, fromMaybe, isJust, isNothing, listToMaybe, mapMaybe)
+import Data.Maybe (catMaybes, fromMaybe, isJust, isNothing, listToMaybe, mapMaybe, maybeToList)
 import qualified Data.Text.Extended as T
 import Data.Text.Encoding (encodeUtf8)
 import qualified Data.Text.Lazy.IO as TL
@@ -1037,27 +1040,39 @@ buildEffect relativize pkgPath pkgConfig opts mbOutFile = do
         syncUpgradesField :: PackagePath -> PackageConfigFields -> Options -> IO (PackageConfigFields, Options)
         syncUpgradesField pkgPath pkgConf opts = do
           opts <- updateUpgradePath "build" pkgPath opts (pUpgradeDar pkgConf)
-          pure (pkgConf { pUpgradeDar = uiUpgradedPackagePath (optUpgradeInfo opts) }, opts)
+          pure (pkgConf { pUpgradeDar = uiUpgradedPackage (optUpgradeInfo opts) }, opts)
 
-updateUpgradePath :: T.Text -> PackagePath -> Options -> Maybe FilePath -> IO Options
-updateUpgradePath context packagePath opts@Options{optUpgradeInfo} newPkgPath = do
+updateUpgradePath :: T.Text -> PackagePath -> Options -> Maybe UpgradedPackage -> IO Options
+updateUpgradePath context packagePath opts@Options{optUpgradeInfo} newUpgradePkg = do
   let packageFilePath = unwrapPackagePath packagePath
-  optCanonPath <- traverse canonicalizePath $ uiUpgradedPackagePath optUpgradeInfo
-  pkgCanonPath <- withCurrentDirectory packageFilePath $ traverse canonicalizePath newPkgPath
+      renderUpgradePackage :: UpgradedPackage -> T.Text
+      renderUpgradePackage (UpgradedPackagePath path) = "'" <> T.pack (makeRelative packageFilePath path) <> "'"
+      renderUpgradePackage (UpgradedPackageId pkgId) = "package id '" <> LF.unPackageId pkgId <> "'"
+  optCanonUpgradePkg <- traverse canonicalizeUpgradePackage $ uiUpgradedPackage optUpgradeInfo
+  pkgCanonUpgradePkg <- withCurrentDirectory packageFilePath $ traverse canonicalizeUpgradePackage newUpgradePkg
   -- optUpgradeInfo is normalised to current directory
-  -- newPkgPath is normalised to daml.yaml location (or currentDirectory)
-  uiUpgradedPackagePath <- case (pkgCanonPath, optCanonPath) of
+  -- newUpgradePkg is normalised to daml.yaml location (or currentDirectory)
+  uiUpgradedPackage <- case (pkgCanonUpgradePkg, optCanonUpgradePkg) of
     (Just damlYamlOption, Just buildFlagsOption) | damlYamlOption /= buildFlagsOption -> do
       loggerH <- getLogger opts context
       Logger.logError loggerH $ T.unlines
-        [ "ERROR: Specified two different DARs to run upgrade checks against:"
-        , "  Path specified in daml.yaml `upgrades:` field is '" <> T.pack (makeRelative packageFilePath damlYamlOption) <> "'"
-        , "  Path specified in `--upgrades` build option is '" <> T.pack (makeRelative packageFilePath buildFlagsOption) <> "'"
+        [ "ERROR: Specified two different packages to run upgrade checks against:"
+        , "  Package specified in daml.yaml `upgrades:` field is " <> renderUpgradePackage damlYamlOption
+        , "  Package specified in `--upgrades` build option is " <> renderUpgradePackage buildFlagsOption
         ]
       exitFailure
     (a, b) ->
       pure (a <|> b)
-  pure $ opts { optUpgradeInfo = optUpgradeInfo { uiUpgradedPackagePath } }
+  case uiUpgradedPackage of
+    Just (UpgradedPackageId pkgId) | uiTypecheckUpgrades optUpgradeInfo -> do
+      loggerH <- getLogger opts context
+      Logger.logError loggerH $ T.unlines
+        [ "ERROR: Cannot typecheck upgrades against package id '" <> LF.unPackageId pkgId <> "', as its DAR is not available."
+        , "  Specify the path to a DAR to typecheck against, or disable upgrade typechecking with `--typecheck-upgrades=no`."
+        ]
+      exitFailure
+    _ -> pure ()
+  pure $ opts { optUpgradeInfo = optUpgradeInfo { uiUpgradedPackage } }
 
 
 {- | Multi Build! (the multi-package.yaml approach)
@@ -1671,9 +1686,9 @@ buildMultiPackageConfigFromDamlYaml path =
       bmSourceDaml <- queryPackageConfigRequired ["source"] package
       dataDeps <- fromMaybe [] <$> queryPackageConfig ["data-dependencies"] package
       deps <- fromMaybe [] <$> queryPackageConfig ["dependencies"] package
-      upgradesDar <- maybe [] pure <$> queryPackageConfig ["upgrades"] package
+      mUpgradesDar <- maybe Nothing upgradedPackagePath <$> queryPackageConfig ["upgrades"] package
 
-      let bmDarDeps = filter (\dep -> takeExtension dep == ".dar") (mapMaybe getSimplePathOrName $ dataDeps <> deps) <> upgradesDar
+      let bmDarDeps = filter (\dep -> takeExtension dep == ".dar") (mapMaybe getSimplePathOrName (dataDeps <> deps) <> maybeToList mUpgradesDar)
       
       bmOutput <- queryPackageConfigBuildOutput path package
       pure $ BuildMultiPackageConfig {..}
