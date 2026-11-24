@@ -46,16 +46,11 @@ jobs:
           set -euo pipefail
           cd sdk
           eval "$(dev-env/bin/dade assist)"
+          source $(bash-lib)
 
           bazel build //ci/cron:cron
 
-          key=$(mktemp)
-          cleanup="rm -rf $key ~/.config/gcloud"
-          trap "$cleanup" EXIT
-          echo "$GCRED" > $key
-          gcloud auth activate-service-account --key-file=$key
-          export BOTO_CONFIG=/dev/null
-          ./bazel-bin/ci/cron/cron bazel-cache --age 75 --delete --cache-suffix '**'
+          wrap_gcloud "$GCRED" "./bazel-bin/ci/cron/cron bazel-cache --age 75 --delete --cache-suffix '**'"
         displayName: 'Fix Bazel Cache'
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
@@ -139,23 +134,20 @@ jobs:
     steps:
       - checkout: self
         clean: true
+      - template: ci/bash-lib.yml
+        parameters:
+          var_name: bash-lib
       - bash: |
           set -euo pipefail
 
           eval "$(cd sdk; dev-env/bin/dade-assist)"
+          source $(bash-lib)
 
           STATS=$(mktemp)
           curl https://api.github.com/repos/digital-asset/daml/releases -sSfL | gzip -9 > $STATS
 
-          GCS_KEY=$(mktemp)
-          cleanup () {
-              rm -f $GCS_KEY
-          }
-          trap cleanup EXIT
-          echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
-          gcloud auth activate-service-account --key-file=$GCS_KEY
-          BOTO_CONFIG=/dev/null gsutil cp $STATS gs://daml-data/downloads/$(date -u +%Y%m%d_%H%M%SZ).json.gz
+          gcs "$GCRED" cp $STATS gs://daml-data/downloads/$(date -u +%Y%m%d_%H%M%SZ).json.gz
         displayName: 'Download Stats'
         env:
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - template: ci/tell-slack-failed.yml

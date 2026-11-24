@@ -130,18 +130,19 @@ jobs:
         set -euo pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(cd sdk; ./dev-env/bin/dade-assist)"
+        source $(bash-lib)
         # On main this job only runs for ci/daily-snapshot.yml, i.e. snapshots.
         # Official releases are published by the copy of this file on the
         # release-trigger branch, which picks the registry from the version.
         DPM_REGISTRY="europe-docker.pkg.dev/da-images/public-unstable"
-        # Authorize in GCLOUD
-        gcloud beta auth activate-service-account --key-file=<(echo "${GOOGLE_APPLICATION_CREDENTIALS_CONTENT}")
-        gcloud auth configure-docker --quiet ${DPM_REGISTRY%%/*}
-        ./ci/publish-oci.sh $(Build.StagingDirectory) $(release_tag) ${DPM_REGISTRY}
+        wrap_gcloud "$GCRED" "
+          gcloud auth configure-docker --quiet ${DPM_REGISTRY%%/*}
+          ./ci/publish-oci.sh $(Build.StagingDirectory) $(release_tag) ${DPM_REGISTRY}
+        "
       name: publish_to_oci
       displayName: "Publish Split Release Artifacts to OCI Registry"
       env:
-        GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       condition: and(not(startsWith(variables['release_tag'], '2.')), not(startsWith(variables['release_tag'], '3.3')))
     - bash: |
         set -euo pipefail
