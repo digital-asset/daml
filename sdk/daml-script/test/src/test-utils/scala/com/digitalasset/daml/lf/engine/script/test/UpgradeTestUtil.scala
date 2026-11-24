@@ -22,7 +22,7 @@ class UpgradeTestUtil(upgradeTestLibDar: Path)(implicit executor: ExecutionConte
   private val tempDir: Path = Files.createTempDirectory("upgrades-it")
 
   val upgradeTestLibPackageId: PackageId =
-    archive.UniversalArchiveReader.assertReadFile(upgradeTestLibDar.toFile).main.pkgId
+    archive.DarPackageIdReader.assertReadArchiveFromFile(upgradeTestLibDar.toFile).main
 
   private val builtTestCaseDars: mutable.HashMap[TestCase, (Path, Seq[Dar])] =
     new mutable.HashMap[TestCase, (Path, Seq[Dar])]
