@@ -27,12 +27,9 @@ for platform in "${platforms[@]}"; do
   shas+=("    \"$platform\": \"$sha\",")
 done
 
-cat << EOF > "bazel_tools/dpm_version.bzl"
+cat << EOF > "bazel/versions/dpm.version.bzl"
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-
-# THIS IS A GENERATED FILE
-# Bump using \`bump-dpm.sh\`
 
 DPM_VERSION = "$DPM_VERSION"
 
