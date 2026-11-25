@@ -46,3 +46,10 @@ safeRound i m x = script do
 test = script do
   result <- mapA (\m -> mapA (safeRound 2 m) inputDecimal) inputModes
   result === expectedOutput
+
+-- Rounding to the scale or more decimal places leaves the value unchanged
+testRoundBeyondScale = script do
+  let unchanged = map (const (map Some inputDecimal)) inputModes
+  results <- mapA (\i -> mapA (\m -> mapA (safeRound i m) inputDecimal) inputModes) [10, 11, 37]
+  results === [unchanged, unchanged, unchanged]
+  N.roundNumeric 2 N.RoundingHalfEven (5.0 : Numeric 0) === 5.0
