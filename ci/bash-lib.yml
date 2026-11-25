@@ -168,14 +168,18 @@ steps:
         jq -n --arg message "$message" '{"text": $message}' \
          | curl -XPOST -i -H 'Content-Type: application/json' -d @- $channel
     }
+    # Runs $cmd with $cred activated in throwaway gcloud and docker config
+    # dirs, so that no credentials outlive the command on (shared) CI agents.
     wrap_gcloud() (
         cred="$1"
         cmd="$2"
         key=$(mktemp)
         config_dir=$(mktemp -d)
-        trap "rm -rf $key $config_dir" EXIT
+        docker_config_dir=$(mktemp -d)
+        trap "rm -rf $key $config_dir $docker_config_dir" EXIT
         echo "$cred" > $key
         export CLOUDSDK_CONFIG="$config_dir"
+        export DOCKER_CONFIG="$docker_config_dir"
         export BOTO_CONFIG=/dev/null
         gcloud auth activate-service-account --key-file=$key
         eval "$cmd"
