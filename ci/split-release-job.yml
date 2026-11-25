@@ -1,0 +1,141 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+parameters:
+  - name: mode
+    type: string
+    values:
+      - pr
+      - snapshot
+
+jobs:
+- job: split_release
+  ${{ if eq(parameters.mode, 'pr') }}:
+    displayName: 'Split Release (smoke)'
+    dependsOn:
+      - linux
+      - macos
+      - windows
+  ${{ if eq(parameters.mode, 'snapshot') }}:
+    displayName: 'Split Release Artifacts'
+    dependsOn:
+      - check_for_release
+      - linux
+      - macos
+      - windows
+    condition: and(succeeded(),
+                   eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+                   or(eq(variables['Build.SourceBranchName'], 'main'),
+                      eq(variables['Build.SourceBranchName'], 'main-2.x')))
+    variables:
+      release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
+      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+  pool:
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
+  workspace:
+    clean: all
+  steps:
+    - checkout: self
+      clean: true
+    - ${{ if eq(parameters.mode, 'pr') }}:
+      - bash: |
+          set -euo pipefail
+          if [ "$(Build.Reason)" = "PullRequest" ]; then
+            release_sha=$(git rev-parse HEAD^2)
+          else
+            release_sha=$(git rev-parse HEAD)
+          fi
+          trigger_sha=$(git rev-parse HEAD)
+          echo "release_tag: $(release_tag)"
+          echo "release_sha: $release_sha"
+          echo "trigger_sha: $trigger_sha"
+          echo "##vso[task.setvariable variable=release_sha]$release_sha"
+          echo "##vso[task.setvariable variable=trigger_sha]$trigger_sha"
+        displayName: 'Release metadata'
+    - ${{ if eq(parameters.mode, 'snapshot') }}:
+      - bash: |
+          set -euo pipefail
+          git checkout $(release_sha)
+          echo "release_tag: $(release_tag)"
+          echo "release_sha: $(release_sha)"
+          echo "trigger_sha: $(trigger_sha)"
+        displayName: 'Checkout Release Commit'
+    - download: current
+      patterns: '**/*-release.tar'
+      displayName: 'Download Release Artifacts'
+    - bash: |
+        set -euo pipefail
+        dir="$(Build.StagingDirectory)/release-artifacts"
+        mkdir -p "$dir"
+        for archive in "$(Pipeline.Workspace)"/*-release/*-release.tar; do
+          echo "Unpacking $archive"
+          tar -xkf "$archive" -C "$dir"
+        done
+      displayName: 'Unpack Release Artifacts'
+    - bash: |
+        set -euo pipefail
+        cd "$(Build.StagingDirectory)/release-artifacts/artifactory"
+        for f in *; do
+          echo "Would sign: gpg -ab $f"
+        done
+      displayName: 'Sign Artifactory Artifacts (print only)'
+    - bash: |
+        set -euo pipefail
+        out="$(Build.StagingDirectory)/split-release"
+        mkdir -p "$out"
+        ./ci/assembly-split-release-artifacts.sh $(release_tag) "$(Build.StagingDirectory)/release-artifacts" "$out"
+        printf '{\n  "commit": "%s",\n  "version": "%s",\n  "trigger": "%s"\n}\n' \
+          "$(release_sha)" "$(release_tag)" "$(trigger_sha)" \
+          > "$out/split-release/info.json"
+        cat "$out/split-release/info.json"
+      displayName: 'Split Release Artifacts'
+    - bash: |
+        set -euo pipefail
+        cd "$(Build.StagingDirectory)/split-release/split-release"
+        bucket="gs://daml-binaries/split-releases/$(release_tag)"
+        ls -1 damlc-* | while read -r f; do
+          echo "Would copy: $f -> $bucket/$f"
+        done
+        find daml-libs/daml-script -type f | sort | while read -r f; do
+          echo "Would copy: $f -> $bucket/${f#daml-libs/}"
+        done
+      displayName: 'Upload Split Release Artifacts to GCS (print only)'
+    - bash: |
+        set -euo pipefail
+        ./ci/publish-artifactory.sh "$(Build.StagingDirectory)" $(release_tag) split
+      env:
+        DRY_RUN: 'true'
+      displayName: 'Publish Split Release Artifacts to Artifactory (print only)'
+    - bash: |
+        set -euo pipefail
+        if [[ "$(release_tag)" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          DPM_REGISTRY="europe-docker.pkg.dev/da-images/public"
+        else
+          DPM_REGISTRY="europe-docker.pkg.dev/da-images/public-unstable"
+        fi
+        ./ci/publish-oci.sh "$(Build.StagingDirectory)" $(release_tag) "$DPM_REGISTRY"
+      env:
+        DRY_RUN: 'true'
+      displayName: 'Publish Split Release Artifacts to OCI Registry (print only)'
+    - ${{ if eq(parameters.mode, 'pr') }}:
+      - bash: |
+          set -euo pipefail
+          tag="internal-$(release_tag)"
+          echo "Would run: git tag -a $tag $(release_sha) -m \"Internal SDK release $tag\""
+          echo "Would run: git push origin $tag"
+        displayName: 'Tag Release in Git (print only)'
+    - bash: |
+        set -euo pipefail
+        sha="$(release_sha)"
+        echo "Would tell Slack (team-releases): SDK release \`$(release_tag)\` (\`${sha:0:8}\`) just pushed to Artifactory."
+      displayName: 'Notify Slack of Split Release (print only)'
+    - bash: |
+        set -euo pipefail
+        cd "$(Build.StagingDirectory)"
+        find release-artifacts split-release -type f | sort | while read -r f; do
+          printf '%6s  %s  %s\n' "$(du -h "$f" | cut -f1)" "$(sha256sum "$f" | cut -d' ' -f1)" "$f"
+        done
+        echo "  total: $(find release-artifacts split-release -type f | wc -l) files"
+      displayName: 'Split Release - File list'

@@ -1,0 +1,15 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+package(default_visibility = ["//visibility:public"])
+
+alias(
+    name = "jq",
+    actual = select({
+        "//bazel/platforms:is_linux_x86_64": "@jq_toolchains_linux_amd64//:jq",
+        "//bazel/platforms:is_linux_aarch64": "@jq_toolchains_linux_arm64//:jq",
+        "//bazel/platforms:is_macos_x86_64": "@jq_toolchains_darwin_amd64//:jq",
+        "//bazel/platforms:is_macos_aarch64": "@jq_toolchains_darwin_arm64//:jq",
+        "//bazel/platforms:is_windows_x86_64": "@jq_toolchains_windows_amd64//:jq.exe",
+    }),
+)

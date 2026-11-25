@@ -276,12 +276,10 @@ jobs:
         displayName: 'Local Bazel build folder'
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
-      - template: ../install-linux-tool.yml
+      - template: ../bazel-tool-unix.yml
         parameters:
+          target: '@dpm_binary//:oras'
           name: oras
-          url: https://github.com/oras-project/oras/releases/download/v1.4.0/oras_1.4.0_linux_amd64.tar.gz
-          sha256: d8e1dce2fd8ce996f1d901845b688eb0cf505a6082897606f053825bb47935d1
-          archive_path: oras
       - bash: |
           set -euo pipefail
 

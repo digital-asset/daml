@@ -1,0 +1,102 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+pr: none
+trigger: none
+
+parameters:
+- name: version
+  type: string
+  default: snapshot
+- name: commit
+  type: string
+  default: HEAD
+
+variables:
+  bazel_flags: >-
+    --remote_upload_local_results=true
+  build_cpu_flags: --local_resources=cpu=HOST_CPUS
+
+# TODO: when publishing is enabled, restore the GPG signing, GCS, Artifactory, OCI and Slack steps of ci.old/split-release-job.yml in ci/split-release-job.yml, and the 'Publish NPM and Maven artifacts' step of ci.old/build-unix.yml in ci/build-jobs.yml.
+jobs:
+- job: check_for_release
+  pool:
+    name: "ubuntu_20_04"
+    demands: assignment -equals default
+  steps:
+    - checkout: self
+      clean: true
+    - template: bash-lib.yml
+      parameters:
+        var_name: bash-lib
+    - template: bazelisk-unix.yml
+    - bash: |
+        set -euo pipefail
+        ci/clean-bazel-build-folder.sh
+        printf '%s\n' \
+          'startup --output_user_root=../../daml_build/user_root' \
+          'build --disk_cache=' \
+          'common --repository_cache=../../daml_build/repository_cache' \
+          > sdk/.bazelrc.local
+      displayName: 'Local Bazel build folder'
+    - template: bazel-tool-unix.yml
+      parameters:
+        target: //bazel/tools:jq
+        name: jq
+    - bash: |
+        set -euo pipefail
+        cd sdk
+        source $(bash-lib)
+
+        prefix=$(git show ${{ parameters.commit }}:sdk/NIGHTLY_PREFIX)
+        if [ "${{ parameters.version }}" = "snapshot" ]; then
+            release=$(./release.sh snapshot ${{ parameters.commit }} $prefix 2>/dev/null | awk '{print $2}')
+        else
+            release=${{ parameters.version }}
+        fi
+
+        ERR=$(mktemp)
+        OUT=$(curl https://digitalasset.jfrog.io/artifactory/api/storage/assembly/daml/$release \
+                   -u $AUTH \
+                   -I \
+                   2>$ERR)
+        STATUS=$(echo "$OUT" | head -1 | sed 's:HTTP/1.1 \([^ ]\+\).*:\1:')
+        case "$STATUS" in
+          200)
+            echo "Version $release already exists on Artifactory, aborting."
+            setvar is_release false
+            ;;
+          404)
+            setvar is_release true
+            setvar trigger_sha $(git rev-parse HEAD)
+            setvar release_sha $(git rev-parse ${{ parameters.commit }})
+            setvar release_tag $release
+            ;;
+          *)
+            echo "Unexpected status code: $STATUS"
+            echo "curl stdout:"
+            echo "--"
+            echo "$OUT"
+            echo "--"
+            echo "curl stderr:"
+            echo "--"
+            echo "$ERR"
+            echo "--"
+            exit 1
+            ;;
+        esac
+      name: out
+      env:
+        AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
+    - bash: (cd sdk && bazelisk shutdown) || true
+      displayName: 'Stop Bazel'
+      condition: always()
+    - bash: ci/clean-bazel-build-folder.sh
+      displayName: 'Clean local Bazel build folder'
+      condition: always()
+- template: build-jobs.yml
+  parameters:
+    mode: snapshot
+- template: split-release-job.yml
+  parameters:
+    mode: snapshot
