@@ -1,19 +1,6 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-trigger: none
-pr: none
-
-variables:
-  blackduck_script_sha: 371e805ad4a140ca3ee564882637da718a056b47
-  bazel_flags: >-
-    --local_resources=cpu=HOST_CPUS
-    --remote_cache=https://bazel-cache.da-ext.net/202610
-    --remote_upload_local_results=false
-  # TODO: when publishing is enabled, drop detect_offline_flags, use $(BLACKDUCK_HUBDETECT_TOKEN) instead of $(blackduck_token), restore the NOTICES check/publish steps from ci.old/blackduck.yml and the main/main-2.x condition of run_notices_pr_build from ci.old/cron/daily-compat.yml, and the sed/open_pr/trigger_azure part of bump_blackduck_if_needed from ci.old/blackduck.yml.
-  detect_offline_flags: --blackduck.offline.mode=true --detect.output.path=$AGENT_TEMPDIRECTORY/blackduck
-  blackduck_token: offline-placeholder
-
 jobs:
 - job: blackduck_scan
   displayName: 'Blackduck Scan'
@@ -21,6 +8,15 @@ jobs:
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default
+  variables:
+    blackduck_script_sha: 371e805ad4a140ca3ee564882637da718a056b47
+    bazel_flags: >-
+      --local_resources=cpu=HOST_CPUS
+      --remote_cache=https://bazel-cache.da-ext.net/202610
+      --remote_upload_local_results=false
+    # TODO: when publishing is enabled, drop detect_offline_flags, use $(BLACKDUCK_HUBDETECT_TOKEN) instead of $(blackduck_token), restore the NOTICES check/publish steps from ci.old/blackduck.yml and the main/main-2.x condition of run_notices_pr_build from ci.old/cron/daily-compat.yml, and the sed/open_pr/trigger_azure part of bump_blackduck_if_needed from ci.old/blackduck.yml.
+    detect_offline_flags: --blackduck.offline.mode=true --detect.output.path=$AGENT_TEMPDIRECTORY/blackduck
+    blackduck_token: offline-placeholder
   steps:
   - checkout: self
     clean: true
@@ -218,7 +214,7 @@ jobs:
             BRANCH="notices-update-$(Build.BuildId)"
             cp "$(Pipeline.Workspace)/notices/NOTICES" NOTICES
             git add NOTICES
-            open_superseding_pr "$BRANCH" "update NOTICES file" "" "$(Build.SourceBranchName)" "ci-generated-notices-update"
+            open_superseding_pr "$BRANCH" "update NOTICES file" "" "$(Build.SourceBranchName)" "ci-generated-notices-update" "no-release-notes"
             trigger_azure $AZURE_DEVOPS_EXT_PAT PRs --branch $BRANCH
         fi
       displayName: 'Open PR to update NOTICES file'

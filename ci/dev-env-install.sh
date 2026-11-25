@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
-echo "TODO: ci/dev-env-install.sh only exists because release-trigger calls it; remove it once release-trigger installs bazelisk and gcloud itself and stops passing GNU-only flags to tar on macOS" >&2
+echo "TODO: ci/dev-env-install.sh only exists because release-trigger and ci/cron/daily-compat.yml call it; remove it once both install bazelisk, jq and gcloud themselves and release-trigger stops passing GNU-only flags to tar on macOS" >&2
 
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 

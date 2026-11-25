@@ -1,0 +1,29 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+parameters:
+  - name: name
+    type: string
+  - name: url
+    type: string
+  - name: sha256
+    type: string
+  - name: archive_path
+    type: string
+
+steps:
+  - bash: |
+      set -euo pipefail
+
+      bin_dir="$HOME/.local/bin"
+      tmp="$(mktemp -d)"
+      trap 'rm -rf "$tmp"' EXIT
+
+      curl -sSfL --retry 5 '${{ parameters.url }}' -o "$tmp/archive.tar.gz"
+      echo '${{ parameters.sha256 }}  '"$tmp/archive.tar.gz" | sha256sum -c -
+      tar -xzf "$tmp/archive.tar.gz" -C "$tmp" '${{ parameters.archive_path }}'
+
+      mkdir -p "$bin_dir"
+      install -m 0755 "$tmp/${{ parameters.archive_path }}" "$bin_dir/${{ parameters.name }}"
+      echo "##vso[task.prependpath]$bin_dir"
+    displayName: 'Install ${{ parameters.name }}'
