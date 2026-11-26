@@ -1228,7 +1228,7 @@ tests Tools{damlc} = testGroup "Packaging" $
                 ]
             expectSameId =<< roundTripThroughDar damlc proj (dir </> "rebuild")
 
-      , -- Fails today: due to compiler non-determinism
+      , -- Fails today: it passes once every dependency can be read as a data-dependency
         testCase "a dependency the package named" $ withTempDir $ \dir -> do
             dep <- buildDependencyDar damlc dir "dep"
             let proj = dir </> "named"
@@ -1379,8 +1379,7 @@ tests Tools{damlc} = testGroup "Packaging" $
                 ]
             expectSameId =<< roundTripThroughDar damlc proj (dir </> "rebuild")
 
-      , -- Fails today: damlc reads upgrades: as a file path, not a package id
-        testCase "a package that upgrades another" $ withTempDir $ \dir -> do
+      , testCase "a package that upgrades another" $ withTempDir $ \dir -> do
             let v1 = dir </> "v1"
             createDirectoryIfMissing True (v1 </> "daml")
             writeFileUTF8 (v1 </> "daml.yaml") $ unlines
@@ -1399,6 +1398,7 @@ tests Tools{damlc} = testGroup "Packaging" $
                 , "    signatory owner"
                 ]
             withCurrentDirectory v1 $ callProcessSilent damlc ["build", "-o", "v1.dar"]
+            predecessor <- mainPackageIdOf (v1 </> "v1.dar")
 
             let v2 = dir </> "v2"
             createDirectoryIfMissing True (v2 </> "daml")
@@ -1418,7 +1418,13 @@ tests Tools{damlc} = testGroup "Packaging" $
                 , "  where"
                 , "    signatory owner"
                 ]
-            expectSameId =<< roundTripThroughDar damlc v2 (dir </> "rebuild")
+            withCurrentDirectory v2 $ callProcessSilent damlc ["build", "-o", "v2.dar"]
+            embedded <- embeddedDamlYamlOf (v2 </> "v2.dar")
+            assertInfixOf ("upgrades: " <> Text.unpack (LF.unPackageId predecessor)) embedded
+            assertInfixOf "--typecheck-upgrades=no" embedded
+            rebuilt <- rebuildFromDar damlc (v2 </> "v2.dar") (dir </> "rebuild")
+            built <- mainPackageIdOf (v2 </> "v2.dar")
+            expectSameId (built, rebuilt)
       ]
 
     , testCase "a module included from outside source warns" $ withTempDir $ \projDir -> do
@@ -1604,6 +1610,13 @@ mainPackageIdOf dar = do
     (pkgId, _pkg) <- either (fail . show) pure $
         LFArchive.decodeArchive LFArchive.DecodeAsMain (BSL.toStrict mainDalf)
     pure pkgId
+
+embeddedDamlYamlOf :: FilePath -> IO String
+embeddedDamlYamlOf dar = do
+    archive <- Zip.toArchive <$> BSL.readFile dar
+    case Zip.findEntryByPath "daml.yaml" archive of
+        Nothing -> fail (dar <> " carries no daml.yaml")
+        Just entry -> pure (BSL.Char8.unpack (Zip.fromEntry entry))
 
 sourceDirectoryOf :: FilePath -> IO FilePath
 sourceDirectoryOf damlYaml = do

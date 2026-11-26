@@ -11,6 +11,7 @@ module DA.Daml.Compiler.EmbeddedDamlYaml
     , relativeSource
     , dataDependencies
     , packageExposureFlags
+    , upgradeCheckOptions
     ) where
 
 import qualified DA.Daml.LF.Ast as LF
@@ -21,7 +22,7 @@ import qualified Data.ByteString.Lazy as BSL
 import Data.List (elemIndex)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe, isJust, mapMaybe)
 import Data.Ord (comparing)
 import qualified Data.Set as Set
 import qualified Data.Text as T
@@ -125,3 +126,5 @@ packageExposureFlags directDependencies pointedAt =
     ]
   where
     carried = Set.fromList pointedAt
+upgradeCheckOptions :: Maybe LF.PackageId -> [T.Text]
+upgradeCheckOptions predecessor = ["--typecheck-upgrades=no" | isJust predecessor]

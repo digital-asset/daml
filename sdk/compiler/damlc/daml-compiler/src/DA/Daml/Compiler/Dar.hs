@@ -202,6 +202,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
                              , edyBuildOptions =
                                  map T.pack pBuildOptions
                                  <> packageExposureFlags rootDepsUnitIds pointedAt
+                                 <> upgradeCheckOptions (LF.unUpgradedPackageId <$> mbUpgradedPackageId)
                              }
                  when (isNothing mbEmbeddedDamlYaml) $
                      liftIO $ IdeLogger.logWarning (ideLogger service) $ T.concat
