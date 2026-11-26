@@ -4,14 +4,14 @@ This page takes you to your first build of the SDK: what you need to bring, what
 the build fetches for itself, and where
 to stand when you run it. Other pages explain how the build works on the inside.
 
-The build has not always looked like this. It used to rely on Nix and the
-repository's own `dev-env` tool, which together provided the compilers,
-libraries, and smaller tools the build needed; until you entered that
-environment, nothing would build. That arrangement is gone. The build now brings
-its own toolchains and asks very little of your machine.
+> [!NOTE]
+> If you have built the SDK before: the build used to rely on Nix and the
+> repository's own `dev-env` tool, and nothing built until you entered that
+> environment. That arrangement is gone; the build now brings its own toolchains.
 
-It asks for [Bazelisk](https://github.com/bazelbuild/bazelisk). Bazelisk isn't a
-build tool itself; it is a small program written in Go and maintained by the
+The build has very few prerequisites. The main one is
+[Bazelisk](https://github.com/bazelbuild/bazelisk). Bazelisk isn't a build tool
+itself; it is a small program written in Go and maintained by the
 Bazel team that sits in front of Bazel. When you run it, it looks up which Bazel
 version the repository asks for, downloads that release once into its own cache
 (`~/.cache/bazelisk` on Linux), and then passes your arguments to it unchanged.
@@ -40,7 +40,8 @@ processor, so installing it is only a matter of putting the right file on your
 [latest Bazelisk release](https://github.com/bazelbuild/bazelisk/releases/latest)
 and rename it to `bazelisk`, or to `bazelisk.exe` on Windows, the name the setup
 script below calls it by. On Linux and macOS, also make it executable. On macOS,
-`brew install bazelisk` does all of this for you.
+`brew install bazelisk` does all of this for you, and if you use Nix, the
+`bazelisk` package from nixpkgs works just as well on Linux and macOS.
 
 | OS      | Release file                                                               |
 |---------|----------------------------------------------------------------------------|
@@ -132,7 +133,9 @@ isn't run again and is reported as `(cached) PASSED`.
 Most of the time you want less than everything. Every target has a label: `//`,
 the package path below `sdk/`, then a colon and the target name. When the name
 matches the last directory, you can leave out the colon and the name, so
-`//compiler/damlc` is the `damlc` target in `sdk/compiler/damlc`.
+`//compiler/damlc` is the `damlc` target in `sdk/compiler/damlc`. Here are a
+few examples of what you can do with a label; none of them are part of the
+setup:
 
 ```sh
 # Build only damlc and what it depends on
@@ -197,10 +200,11 @@ macOS.
 Before the language server can help with a file, it has to load the part of the
 tree the file belongs to. It asks Bazel to build what that code depends on, such
 as the Stackage packages and `ghc-lib`, and then compiles the repository's own
-Haskell code itself. The Bazel part runs in the background, with its output
-going to the server's log rather than to your screen, so until it is done the
-editor gives no Haskell help and does not say what it is waiting for. It looks
-broken when it is only busy.
+Haskell code itself. Bazel runs in the background, and its output goes to the
+language server's log rather than your screen; in VS Code, for example, you find
+it in the Output panel under Haskell. Until that build is done, the editor
+gives no Haskell help, and unless you have that log open, nothing tells you
+why. It looks broken when it is only busy.
 
 That is why the first run of a setup takes a long time. Besides the language
 server, it builds what the editor needs for most of the tree. It does this in
@@ -214,9 +218,10 @@ first time you open a file in a part of the tree that `hie.yaml` maps to a
 target of its own, such as `compiler/damlc/tests`, that target is built from
 scratch.
 
-You can wait, and the editor will get there in the end, but it is a blind wait,
-and that is what confuses most people. It is better to do what the setup did and
-run the build yourself in a terminal before you start the editor:
+You can wait, and the editor will get there in the end, but few people think to
+open the log, so most wait without knowing why, and that is what confuses them.
+It is better to do what the setup did and run the build yourself in a terminal
+before you start the editor:
 
 ```sh
 bazelisk build //compiler/damlc:damlc@ghci@bios   # What the editor needs for most files
@@ -253,16 +258,23 @@ and
 `bazel-testlogs` links in `sdk/` point into it.
 
 Personal settings belong in `sdk/.bazelrc.local`. Git ignores it, and `.bazelrc`
-reads it last, so a flag you set there overrides the same flag in `.bazelrc`. A
-typical use is moving the caches out of the checkout so that several clones can
-share them. The output base cannot be shared, so each clone keeps its own. Use
-absolute paths in it, since relative ones depend on where you run Bazel. Also
-start each line with the same word as the line it replaces in `.bazelrc`: Bazel
-applies all `common` lines before all `build` lines, whichever file they come
-from, so a `common` line of yours loses to a `build` line there.
+reads it last, so your settings win over the shared ones. The most common use is
+moving the caches out of the checkout, so several clones can share them. The
+output base is different: two clones can't share one, so each keeps its own. You
+may still want to move it, though. By default, it sits under `~/.cache/bazel` in
+a directory with a hashed name, and giving each clone its own path next to the
+caches makes it easy to find and delete when you need the space back. Use
+absolute paths, because relative ones depend on where you run Bazel:
 
 ```
 startup --output_base=/home/you/daml_build/daml-main/output_base
 build --disk_cache=/home/you/daml_build/disk_cache
 common --repository_cache=/home/you/daml_build/repository_cache
 ```
+
+The first word of each line matters. Bazel applies all `common` lines before all
+`build` lines, whichever file they come from, so a `build` line always beats a
+`common` line, even one read later. That's why each line above starts with the
+same word as the line it overrides in `.bazelrc`. Written as
+`common --disk_cache=…`, the disk cache line would lose to the `build` line in
+`.bazelrc`, and the cache would quietly stay in `sdk/.bazel-cache/disk`.
