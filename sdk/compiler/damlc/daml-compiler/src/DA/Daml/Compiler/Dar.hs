@@ -197,7 +197,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
                              , edyDamlcVersion = T.pack (versionToString versionInfo)
                              , edySource = source
                              , edyDataDependencies = pointedAt
-                             , edyUpgrades = upwnavPkgId . fst <$> mbUpgradedPackage
+                             , edyUpgrades = LF.unUpgradedPackageId <$> mbUpgradedPackageId
                              , edyModulePrefixes = pModulePrefixes
                              , edyBuildOptions =
                                  map T.pack pBuildOptions
