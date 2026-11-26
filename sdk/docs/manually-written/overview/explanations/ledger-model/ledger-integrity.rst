@@ -366,9 +366,7 @@ Note that a key contract that `tx` does not create is considered active until `t
 Key consistency can now be stated. The order ≺ in the definition captures the precedence that the
 transaction uses to resolve the key: lookups report the contracts in ≺-order and never skip a
 contract in favour of a later one. The definition requires the transaction to be internally
-consistent for all contracts with key `k`. It also speaks of **QueryByKey** nodes only: for its
-purpose, an **Exercise** or a **Fetch** node whose by-key flag is set also counts as a **QueryByKey**
-node on the key of its input contract, with that contract as the one-element non-exhaustive result.
+consistent for all contracts with key `k`.
 
 .. _def-key-consistency:
 
@@ -383,14 +381,20 @@ node on the key of its input contract, with that contract as the one-element non
      If both are created in `tx` and the **Create** node on `c`:sub:`2` executes before the **Create** node
      on `c`:sub:`1`, then `c`:sub:`1` ≺ `c`:sub:`2`.
 
-   * For every **QueryByKey** node `n` on `k` in `tx` with the result `c`:sub:`1`, …, `c`:sub:`m`,
+   * For every node `n` in `tx` that is
+
+     * a **QueryByKey** node on `k` with the result `c`:sub:`1`, …, `c`:sub:`m`, or
+
+     * an **Exercise** or a **Fetch** node whose by-key flag is set and whose input contract
+       `c`:sub:`1` has key `k` (in which case `m` = 1),
+
      writing `K` for the set of key contracts of `tx` for `k` that are active at `n` in `tx`:
 
      * **Stability.**
        `c`:sub:`1`, …, `c`:sub:`m` is a prefix of `K` ordered by ≺.
 
      * **Completeness.**
-       If `n` is exhaustive, then the prefix is all of `K`.
+       If `n` is an exhaustive **QueryByKey** node, then the prefix is all of `K`.
 
    The transaction is **consistent for a set of keys** if it is consistent for every key in the set.
    It is **key consistent** if it is consistent for all keys.  
