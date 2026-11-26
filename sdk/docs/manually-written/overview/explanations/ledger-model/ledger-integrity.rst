@@ -515,7 +515,9 @@ Maintainers check key consistency on projections
 Projection to a party `p` preserves and reflects key consistency for the keys that `p` is a
 maintainer of: a transaction or Ledger is consistent for such a key exactly when its projection to `p` is.
 This follows from the requirement that the maintainers of a key be signatories of the contracts
-carrying it.
+carrying it. Recall that :ref:`key consistency <def-key-consistency>` for `k` includes internal
+consistency for all contracts with key `k`, so this statement needs no separate assumption of
+internal consistency: projection preserves and reflects that part too.
 
 The argument rests on the :ref:`actions on <def-node-on>` a key `k`.
 
