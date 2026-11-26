@@ -204,7 +204,8 @@ record_success() (
   record_after=$(mktemp)
   create_record $record_after $release
   if diff $record_before $record_after; then
-    echo "[$(date --date=@$SECONDS -u +%H:%M:%S)] $tag: now the record should be saved to $(remote_record_location $release)."
+    echo "[$(date --date=@$SECONDS -u +%H:%M:%S)] $tag: saving record."
+    gsutil -q cp $record_before $(remote_record_location $release)
   else
     echo "[$(date --date=@$SECONDS -u +%H:%M:%S)] $tag: artifacts have changed while verifying."
     exit 1

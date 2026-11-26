@@ -195,18 +195,53 @@ steps:
       echo "##vso[task.setvariable variable=$1;isOutput=true]$2"
     }
     trigger_azure() (
-      export AZURE_DEVOPS_EXT_PAT=$1
-      shift
-      build=$1
-      shift
-
-      az extension add --name azure-devops --allow-preview true || true
-
-      az pipelines build queue \
-        --definition-name $build \
-        --org "https://dev.azure.com/digitalasset" \
-        --project daml \
-        $@
+      token=$1
+      definition=$2
+      shift 2
+      branch=""
+      parameters='{}'
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --branch)
+            branch=$2
+            shift 2
+            ;;
+          --parameters)
+            parameters=$(jq -c --arg kv "$2" '. + {($kv | split("=")[0]): ($kv | split("=")[1:] | join("="))}' <<< "$parameters")
+            shift 2
+            ;;
+          *)
+            echo "trigger_azure: unsupported argument: $1" >&2
+            exit 1
+            ;;
+        esac
+      done
+      if [ -z "$branch" ]; then
+        echo "trigger_azure: --branch is required" >&2
+        exit 1
+      fi
+      case "$branch" in
+        refs/*) ;;
+        *) branch="refs/heads/$branch" ;;
+      esac
+      api="https://dev.azure.com/digitalasset/daml/_apis/build"
+      id=$(curl -sSf \
+                -H "Authorization: Bearer $token" \
+                --get \
+                --data-urlencode "name=$definition" \
+                --data-urlencode "api-version=7.1" \
+                "$api/definitions" \
+           | jq -e -r --arg name "$definition" \
+                '.value | if length == 1 then .[0].id else error("expected exactly one pipeline named \($name), found \(length)") end') \
+        || exit 1
+      jq -n --argjson id "$id" --arg branch "$branch" --argjson parameters "$parameters" \
+            '{definition: {id: $id}, sourceBranch: $branch, templateParameters: $parameters}' \
+        | curl -sSf \
+               -H "Authorization: Bearer $token" \
+               -H "Content-Type: application/json" \
+               -d @- \
+               "$api/builds?api-version=7.1" \
+        | jq -r '"Queued \(.definition.name) build \(.id) on \(.sourceBranch): \(._links.web.href)"'
     )
     azure_build_url() {
       echo "${SYSTEM_COLLECTIONURI}${SYSTEM_TEAMPROJECT}/_build/results?buildId=$1"

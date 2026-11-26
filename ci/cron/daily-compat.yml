@@ -16,8 +16,11 @@ schedules:
 variables:
   bazel_flags: >-
     --remote_upload_local_results=true
+  ${{ if in(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/main-2.x') }}:
+    publishing_enabled: 'true'
+  ${{ if notIn(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/main-2.x') }}:
+    publishing_enabled: 'false'
 
-# TODO: when publishing is enabled, restore the PR, Azure trigger and Slack steps of update_canton, compat_versions_pr, report and snapshots from ci.old/cron/daily-compat.yml, and the record upload in ci/cron/check-releases.sh from ci.old/cron/check-releases.sh.
 jobs:
   - job: compatibility_linux
     timeoutInMinutes: 720
@@ -218,7 +221,8 @@ jobs:
     pool:
       name: ubuntu_20_04
       demands: assignment -equals default
-    condition: eq(variables['Build.SourceBranchName'], 'main')
+    condition: and(eq(variables['Build.SourceBranchName'], 'main'),
+                   eq('${{ variables.publishing_enabled }}', 'true'))
     steps:
       - checkout: self
         clean: true
@@ -254,6 +258,8 @@ jobs:
         condition: always()
 
   - template: ../blackduck.yml
+    parameters:
+      publishing_enabled: ${{ eq(variables.publishing_enabled, 'true') }}
 
   - job: update_canton
     condition: not(eq(variables['Build.SourceBranchName'], 'not-main'))
@@ -280,13 +286,19 @@ jobs:
         parameters:
           target: '@dpm_binary//:oras'
           name: oras
+      - template: ../bash-lib.yml
+        parameters:
+          var_name: bash_lib
       - bash: |
           set -euo pipefail
 
           cd sdk
+          source $(bash_lib)
+
+          source_branch="${BUILD_SOURCEBRANCH#refs/heads/}"
 
           git fetch
-          git checkout origin/$(Build.SourceBranchName)
+          git checkout "origin/$source_branch"
 
           old_canton_tag=$(grep 'CANTON_OPEN_SOURCE_TAG' canton/canton_version.bzl | sed 's/.*"\(.*\)".*/\1/')
           old_canton_commit="${old_canton_tag##*v}"
@@ -303,10 +315,10 @@ jobs:
 
           branch="main-canton-update-$version"
 
-          if git diff --exit-code origin/$(Build.SourceBranchName) -- canton daml-lf/daml-lf-versions.json daml-lf/daml-lf-features.json >/dev/null; then
+          if git diff --exit-code "origin/$source_branch" -- canton daml-lf/daml-lf-versions.json daml-lf/daml-lf-features.json >/dev/null; then
               echo "Already up-to-date with latest Canton source & snapshot."
           else
-              if [ "main" = "$(Build.SourceBranchName)" ]; then
+              if [ "main" = "$source_branch" ] && [ '${{ variables.publishing_enabled }}' = 'true' ]; then
                   git add canton/canton_version.bzl canton/shared_dependencies.json maven_install_2.13.json daml-lf/daml-lf-versions.json daml-lf/daml-lf-features.json
                   new_canton_commit="${version##*v}"
 
@@ -333,14 +345,8 @@ jobs:
                   if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
                       echo "Branch $branch already exists on origin (opened by a previous run), not opening another PR."
                   else
-                      echo "Now a PR should be opened"
-                      echo "  branch: $branch into $(Build.SourceBranchName)"
-                      echo "  title: update canton to $version"
-                      echo "  labels: ci-generated-canton-upgrade, no-release-notes"
-                      echo "  body:"
-                      printf '%b\n' "$body" | sed 's/^/    /'
-                      echo "  then: PRs pipeline queued on $branch"
-                      git diff --cached --stat
+                      open_superseding_pr "$branch" "update canton to $version" "$body" "$source_branch" "ci-generated-canton-upgrade" "no-release-notes"
+                      trigger_azure "$AZURE_DEVOPS_EXT_PAT" PRs --branch "$branch"
                   fi
               else
                   echo "Would open PR if this were running on main."
@@ -348,6 +354,7 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
+          AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
       - bash: (cd sdk && bazelisk shutdown) || true
         displayName: 'Shut down Bazel'
         condition: always()
@@ -356,8 +363,9 @@ jobs:
         condition: always()
 
   - job: compat_versions_pr
-    condition: or(eq(variables['Build.SourceBranchName'], 'main'),
-                  eq(variables['Build.SourceBranchName'], 'main-2.x'))
+    condition: and(or(eq(variables['Build.SourceBranchName'], 'main'),
+                      eq(variables['Build.SourceBranchName'], 'main-2.x')),
+                   eq('${{ variables.publishing_enabled }}', 'true'))
     pool:
       name: ubuntu_20_04
       demands: assignment -equals default
@@ -375,6 +383,9 @@ jobs:
           > sdk/.bazelrc.local
       displayName: 'Local Bazel build folder'
     - bash: ci/dev-env-install.sh
+    - template: ../bash-lib.yml
+      parameters:
+        var_name: bash_lib
     - bash: |
         set -euo pipefail
         cd sdk
@@ -386,6 +397,8 @@ jobs:
             -c user.email="support@digitalasset.com" \
             merge origin/main
 
+        source $(bash_lib)
+
         compatibility/update-versions.sh
         git add compatibility/versions.bzl
 
@@ -393,17 +406,14 @@ jobs:
           BRANCH=update-compat-versions-$(date -I)-$(Build.SourceBranchName)
           TITLE="update compat versions ($(date -I) $(Build.SourceBranchName))"
           BODY="If follow-up PRs are needed to fix this one, add a run-full-compat: true trailer to their commit message so the full compat suite runs on them too.\n\nrun-full-compat: true"
-          echo "Now a PR should be opened"
-          echo "  branch: $BRANCH into $(Build.SourceBranchName)"
-          echo "  title: $TITLE"
-          echo "  label: ci-generated-compat-versions-update"
-          echo "  body:"
-          printf '%b\n' "$BODY" | sed 's/^/    /'
-          echo "  then: PRs and digital-asset.daml-daily-compat pipelines queued on $BRANCH"
-          git diff --cached
+          open_superseding_pr "$BRANCH" "$TITLE" "$BODY" "$(Build.SourceBranchName)" "ci-generated-compat-versions-update"
+          trigger_azure "$AZURE_DEVOPS_EXT_PAT" PRs --branch "$BRANCH"
+          trigger_azure "$AZURE_DEVOPS_EXT_PAT" digital-asset.daml-daily-compat --branch "$BRANCH"
         else
           echo "No changes"
         fi
+      env:
+        AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
     - bash: (cd sdk && bazelisk shutdown) || true
       displayName: 'Shut down Bazel'
       condition: always()
@@ -418,7 +428,8 @@ jobs:
                 compat_versions_pr]
     condition: and(succeededOrFailed(),
                    or(eq(variables['Build.SourceBranchName'], 'main'),
-                      eq(variables['Build.SourceBranchName'], 'main-2.x')))
+                      eq(variables['Build.SourceBranchName'], 'main-2.x')),
+                   eq('${{ variables.publishing_enabled }}', 'true'))
     pool:
       name: ubuntu_20_04
       demands: assignment -equals default
@@ -479,12 +490,10 @@ jobs:
           else
             REPORT='```speedy_perf: $(speedy_perf)```'
           fi
-          slack_message="$(echo -e "$MSG\n$REPORT\n")"
+          tell_slack "$(echo -e "$MSG\n$REPORT\n")" "$(Slack.ci-failures-daml)"
         else
-          slack_message="Daily tests failed ($(Build.SourceBranchName)): $COMMIT_LINK."
+          tell_slack "Daily tests failed ($(Build.SourceBranchName)): $COMMIT_LINK." "$(Slack.ci-failures-daml)"
         fi
-        echo "Now this message should be sent to Slack (ci-failures-daml):"
-        printf '%s\n' "$slack_message" | sed 's/^/  /'
 
         export GH_REPO=digital-asset/daml
 
@@ -517,8 +526,7 @@ jobs:
             message=$(printf '%s\n\n%s' "$message" "$note")
           fi
 
-          echo "Now this message should be sent to Slack (team-sdk-updates):"
-          printf '%s\n' "$message" | sed 's/^/  /'
+          tell_slack "$message" "$(Slack.team-sdk-updates)"
         fi
       env:
         GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
@@ -531,15 +539,42 @@ jobs:
 
   - job: snapshots
     timeoutInMinutes: 60
-    condition: eq(variables['Build.SourceBranchName'], 'main')
+    condition: and(eq(variables['Build.SourceBranchName'], 'main'),
+                   eq('${{ variables.publishing_enabled }}', 'true'))
     pool:
       name: 'ubuntu_20_04'
       demands: assignment -equals default
     steps:
+      - checkout: self
+        clean: true
+      - template: ../bazelisk-unix.yml
       - bash: |
           set -euo pipefail
+          ci/clean-bazel-build-folder.sh
+          printf '%s\n' \
+            'startup --output_user_root=../../daml_build/user_root' \
+            'build --disk_cache=' \
+            'common --repository_cache=../../daml_build/repository_cache' \
+            > sdk/.bazelrc.local
+        displayName: 'Local Bazel build folder'
+      - template: ../bazel-tool-unix.yml
+        parameters:
+          target: //bazel/tools:jq
+          name: jq
+      - template: ../bash-lib.yml
+        parameters:
+          var_name: bash_lib
+      - bash: |
+          set -euo pipefail
+          source $(bash_lib)
           sha=$(git rev-parse origin/main)
-          echo "Now the snapshot pipeline should be run"
-          echo "  pipeline: snapshot, branch: main"
-          echo "  parameters: commit=$sha"
-        displayName: 'Run snapshot pipeline (placeholder)'
+          trigger_azure "$AZURE_DEVOPS_EXT_PAT" snapshot --branch main --parameters "commit=$sha"
+        displayName: 'Run snapshot pipeline'
+        env:
+          AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
+      - bash: (cd sdk && bazelisk shutdown) || true
+        displayName: 'Shut down Bazel'
+        condition: always()
+      - bash: ci/clean-bazel-build-folder.sh
+        displayName: 'Clean local Bazel build folder'
+        condition: always()

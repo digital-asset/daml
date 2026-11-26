@@ -7,7 +7,11 @@ parameters:
     values:
       - pr
       - snapshot
+  - name: publishing_enabled
+    type: boolean
+    default: false
 
+# TODO: use the new platform names (linux-x86_64, linux-aarch64, macos-x86_64) and build macos-aarch64 in snapshot mode too, once release-trigger passes the new names.
 jobs:
 - job: linux
   displayName: 'Linux'
@@ -19,15 +23,22 @@ jobs:
     variables:
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
   strategy:
     matrix:
       x86_64:
         assignment: default
-        release_name: linux-x86_64
+        ${{ if eq(parameters.mode, 'pr') }}:
+          release_name: linux-x86_64
+        ${{ if eq(parameters.mode, 'snapshot') }}:
+          release_name: linux-intel
         arch_suffix: '_x86_64'
       aarch64:
         assignment: arm
-        release_name: linux-aarch64
+        ${{ if eq(parameters.mode, 'pr') }}:
+          release_name: linux-aarch64
+        ${{ if eq(parameters.mode, 'snapshot') }}:
+          release_name: linux-arm
         arch_suffix: '_aarch64'
   pool:
     name: 'ubuntu_20_04'
@@ -118,28 +129,51 @@ jobs:
       env:
         DAML_SDK_RELEASE_VERSION: $(release_tag)
       displayName: 'Release - Create Artifacts'
-    - bash: |
-        set -euo pipefail
-        cd "$(Build.StagingDirectory)/maven"
-        echo "Would upload to Maven Central:"
-        find . -type f | sort | sed 's|^\./|  |'
-        echo "  total: $(find . -type f | wc -l) files, $(du -sh . | cut -f1)"
-        cd "$(Build.SourcesDirectory)/sdk"
-        target=//language-support/js/daml-types:npm_package.publish
-        npm_args="--access public"
-        case "$(release_tag)" in
-          *-*) npm_args="$npm_args --tag next" ;;
-        esac
-        if bazelisk query "$target"; then
-          echo "Would publish to npm: bazel run $target -- $npm_args"
-        else
-          echo "##vso[task.logissue type=warning]$target does not exist, so release --upload would fail at the npm step"
-        fi
-      displayName: 'Release - Maven Central and npm (print only)'
-      condition: and(succeeded(), eq(variables['release_name'], 'linux-x86_64'))
+    - ${{ if and(eq(parameters.mode, 'snapshot'), parameters.publishing_enabled) }}:
+      - bash: |
+          set -euo pipefail
+          cd sdk
+          bazelisk build //release:release $(bazel_flags) $(build_cpu_flags) $(cache_flags)
+          ./bazel-bin/release/release --release-dir "$(mktemp -d)" --upload
+        env:
+          DAML_SDK_RELEASE_VERSION: $(release_tag)
+          GPG_KEY: $(gpg-code-signing)
+          MAVEN_USERNAME: $(MAVEN_USERNAME)
+          MAVEN_PASSWORD: $(MAVEN_PASSWORD)
+          MAVEN_URL: "https://central.sonatype.com"
+          NPM_TOKEN: $(NPM_TOKEN)
+        displayName: 'Release - Maven Central and npm'
+        condition: and(succeeded(), eq(variables['release_name'], 'linux-intel'))
+    - ${{ if not(and(eq(parameters.mode, 'snapshot'), parameters.publishing_enabled)) }}:
+      - bash: |
+          set -euo pipefail
+          cd "$(Build.StagingDirectory)/maven"
+          echo "Would upload to Maven Central:"
+          find . -type f | sort | sed 's|^\./|  |'
+          echo "  total: $(find . -type f | wc -l) files, $(du -sh . | cut -f1)"
+          cd "$(Build.SourcesDirectory)/sdk"
+          target=//language-support/js/daml-types:npm_package.publish
+          npm_args="--access public"
+          case "$(release_tag)" in
+            *-*) npm_args="$npm_args --tag next" ;;
+          esac
+          if bazelisk query "$target"; then
+            echo "Would publish to npm: bazel run $target -- $npm_args"
+          else
+            echo "##vso[task.logissue type=warning]$target does not exist, so release --upload would fail at the npm step"
+          fi
+        displayName: 'Release - Maven Central and npm (print only)'
+        ${{ if eq(parameters.mode, 'pr') }}:
+          condition: and(succeeded(), eq(variables['release_name'], 'linux-x86_64'))
+        ${{ if eq(parameters.mode, 'snapshot') }}:
+          condition: and(succeeded(), eq(variables['release_name'], 'linux-intel'))
     - publish: $(Build.StagingDirectory)/$(release_name)-release.tar
       artifact: $(release_name)-release
       displayName: 'Release - Publish Artifacts'
+    - ${{ if and(eq(parameters.mode, 'snapshot'), parameters.publishing_enabled) }}:
+      - template: tell-slack-failed.yml
+        parameters:
+          trigger_sha: '$(trigger_sha)'
     - bash: |
         if [ -n "${KEY:-}" ]; then rm -f "$KEY"; fi
         (cd sdk && bazelisk shutdown) || true
@@ -161,16 +195,21 @@ jobs:
     variables:
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
   strategy:
     matrix:
       x86_64:
         assignment: default
-        release_name: macos-x86_64
+        ${{ if eq(parameters.mode, 'pr') }}:
+          release_name: macos-x86_64
+        ${{ if eq(parameters.mode, 'snapshot') }}:
+          release_name: macos
         arch_suffix: '_x86_64'
-      aarch64:
-        assignment: m1-builds
-        release_name: macos-aarch64
-        arch_suffix: '_aarch64'
+      ${{ if eq(parameters.mode, 'pr') }}:
+        aarch64:
+          assignment: m1-builds
+          release_name: macos-aarch64
+          arch_suffix: '_aarch64'
   pool:
     name: 'macOS-pool'
     demands: assignment -equals $(assignment)
@@ -257,6 +296,10 @@ jobs:
     - publish: $(Build.StagingDirectory)/$(release_name)-release.tar
       artifact: $(release_name)-release
       displayName: 'Release - Publish Artifacts'
+    - ${{ if and(eq(parameters.mode, 'snapshot'), parameters.publishing_enabled) }}:
+      - template: tell-slack-failed.yml
+        parameters:
+          trigger_sha: '$(trigger_sha)'
     - bash: |
         if [ -n "${KEY:-}" ]; then rm -f "$KEY"; fi
         (cd sdk && bazelisk shutdown) || true
@@ -278,6 +321,7 @@ jobs:
     variables:
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
   strategy:
     matrix:
       x86_64:
@@ -392,6 +436,10 @@ jobs:
     - publish: $(Build.StagingDirectory)/$(release_name)-release.tar
       artifact: $(release_name)-release
       displayName: 'Release - Publish Artifacts'
+    - ${{ if and(eq(parameters.mode, 'snapshot'), parameters.publishing_enabled) }}:
+      - template: tell-slack-failed.yml
+        parameters:
+          trigger_sha: '$(trigger_sha)'
     - powershell: |
         if ($env:KEY) { Remove-Item -Force -ErrorAction SilentlyContinue $env:KEY }
         Set-Location sdk

@@ -16,8 +16,11 @@ variables:
   bazel_flags: >-
     --remote_upload_local_results=true
   build_cpu_flags: --local_resources=cpu=HOST_CPUS
+  ${{ if in(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/main-2.x') }}:
+    publishing_enabled: 'true'
+  ${{ if notIn(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/main-2.x') }}:
+    publishing_enabled: 'false'
 
-# TODO: when publishing is enabled, restore the GPG signing, GCS, Artifactory, OCI and Slack steps of ci.old/split-release-job.yml in ci/split-release-job.yml, and the 'Publish NPM and Maven artifacts' step of ci.old/build-unix.yml in ci/build-jobs.yml.
 jobs:
 - job: check_for_release
   pool:
@@ -97,6 +100,8 @@ jobs:
 - template: build-jobs.yml
   parameters:
     mode: snapshot
+    publishing_enabled: ${{ eq(variables.publishing_enabled, 'true') }}
 - template: split-release-job.yml
   parameters:
     mode: snapshot
+    publishing_enabled: ${{ eq(variables.publishing_enabled, 'true') }}

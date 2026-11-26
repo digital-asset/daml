@@ -7,6 +7,9 @@ parameters:
     values:
       - pr
       - snapshot
+  - name: publishing_enabled
+    type: boolean
+    default: false
 
 jobs:
 - job: split_release
@@ -24,9 +27,7 @@ jobs:
       - macos
       - windows
     condition: and(succeeded(),
-                   eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'main'),
-                      eq(variables['Build.SourceBranchName'], 'main-2.x')))
+                   eq(dependencies.check_for_release.outputs['out.is_release'], 'true'))
     variables:
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -62,6 +63,21 @@ jobs:
           echo "release_sha: $(release_sha)"
           echo "trigger_sha: $(trigger_sha)"
         displayName: 'Checkout Release Commit'
+    - ${{ if and(eq(parameters.mode, 'snapshot'), parameters.publishing_enabled) }}:
+      - template: bash-lib.yml
+        parameters:
+          var_name: bash-lib
+      - bash: |
+          set -euo pipefail
+          ci/clean-bazel-build-folder.sh
+          printf '%s\n' \
+            'startup --output_user_root=../../daml_build/user_root' \
+            'build --disk_cache=' \
+            'common --repository_cache=../../daml_build/repository_cache' \
+            > sdk/.bazelrc.local
+        displayName: 'Local Bazel build folder'
+      - bash: ci/dev-env-install.sh
+        displayName: 'Build/Install the Developer Environment'
     - download: current
       patterns: '**/*-release.tar'
       displayName: 'Download Release Artifacts'
@@ -74,13 +90,32 @@ jobs:
           tar -xkf "$archive" -C "$dir"
         done
       displayName: 'Unpack Release Artifacts'
-    - bash: |
-        set -euo pipefail
-        cd "$(Build.StagingDirectory)/release-artifacts/artifactory"
-        for f in *; do
-          echo "Would sign: gpg -ab $f"
-        done
-      displayName: 'Sign Artifactory Artifacts (print only)'
+    - ${{ if and(eq(parameters.mode, 'snapshot'), parameters.publishing_enabled) }}:
+      - bash: |
+          set -euo pipefail
+          KEY_FILE=$(mktemp)
+          GPG_DIR=$(mktemp -d)
+          cleanup() {
+              rm -rf $KEY_FILE $GPG_DIR
+          }
+          trap cleanup EXIT
+          echo "$GPG_KEY" | base64 -d > $KEY_FILE
+          gpg --homedir $GPG_DIR --no-tty --quiet --import $KEY_FILE
+          cd "$(Build.StagingDirectory)/release-artifacts/artifactory"
+          for f in *; do
+              gpg --homedir $GPG_DIR -ab $f
+          done
+        env:
+          GPG_KEY: $(gpg-code-signing)
+        displayName: 'Sign Artifactory Artifacts'
+    - ${{ if not(and(eq(parameters.mode, 'snapshot'), parameters.publishing_enabled)) }}:
+      - bash: |
+          set -euo pipefail
+          cd "$(Build.StagingDirectory)/release-artifacts/artifactory"
+          for f in *; do
+            echo "Would sign: gpg -ab $f"
+          done
+        displayName: 'Sign Artifactory Artifacts (print only)'
     - bash: |
         set -euo pipefail
         out="$(Build.StagingDirectory)/split-release"
@@ -91,46 +126,86 @@ jobs:
           > "$out/split-release/info.json"
         cat "$out/split-release/info.json"
       displayName: 'Split Release Artifacts'
-    - bash: |
-        set -euo pipefail
-        cd "$(Build.StagingDirectory)/split-release/split-release"
-        bucket="gs://daml-binaries/split-releases/$(release_tag)"
-        ls -1 damlc-* | while read -r f; do
-          echo "Would copy: $f -> $bucket/$f"
-        done
-        find daml-libs/daml-script -type f | sort | while read -r f; do
-          echo "Would copy: $f -> $bucket/${f#daml-libs/}"
-        done
-      displayName: 'Upload Split Release Artifacts to GCS (print only)'
-    - bash: |
-        set -euo pipefail
-        ./ci/publish-artifactory.sh "$(Build.StagingDirectory)" $(release_tag) split
-      env:
-        DRY_RUN: 'true'
-      displayName: 'Publish Split Release Artifacts to Artifactory (print only)'
-    - bash: |
-        set -euo pipefail
-        if [[ "$(release_tag)" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          DPM_REGISTRY="europe-docker.pkg.dev/da-images/public"
-        else
-          DPM_REGISTRY="europe-docker.pkg.dev/da-images/public-unstable"
-        fi
-        ./ci/publish-oci.sh "$(Build.StagingDirectory)" $(release_tag) "$DPM_REGISTRY"
-      env:
-        DRY_RUN: 'true'
-      displayName: 'Publish Split Release Artifacts to OCI Registry (print only)'
-    - ${{ if eq(parameters.mode, 'pr') }}:
+    - ${{ if and(eq(parameters.mode, 'snapshot'), parameters.publishing_enabled) }}:
       - bash: |
           set -euo pipefail
-          tag="internal-$(release_tag)"
-          echo "Would run: git tag -a $tag $(release_sha) -m \"Internal SDK release $tag\""
-          echo "Would run: git push origin $tag"
-        displayName: 'Tag Release in Git (print only)'
-    - bash: |
-        set -euo pipefail
-        sha="$(release_sha)"
-        echo "Would tell Slack (team-releases): SDK release \`$(release_tag)\` (\`${sha:0:8}\`) just pushed to Artifactory."
-      displayName: 'Notify Slack of Split Release (print only)'
+          source $(bash-lib)
+          cd "$(Build.StagingDirectory)/split-release/split-release"
+          for f in "damlc-*" daml-libs/daml-script; do
+            gcs "$GCRED" cp -r "$f" "gs://daml-binaries/split-releases/$(release_tag)/"
+          done
+        env:
+          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+        displayName: 'Upload Split Release Artifacts to GCS'
+      - bash: |
+          set -euo pipefail
+          ./ci/publish-artifactory.sh "$(Build.StagingDirectory)" $(release_tag) split
+        env:
+          AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
+        displayName: 'Publish Split Release Artifacts to Artifactory'
+      - bash: |
+          set -euo pipefail
+          source $(bash-lib)
+          if [[ "$(release_tag)" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            DPM_REGISTRY="europe-docker.pkg.dev/da-images/public"
+          else
+            DPM_REGISTRY="europe-docker.pkg.dev/da-images/public-unstable"
+          fi
+          wrap_gcloud "$GCRED" "
+            gcloud auth configure-docker --quiet ${DPM_REGISTRY%%/*}
+            ./ci/publish-oci.sh $(Build.StagingDirectory) $(release_tag) ${DPM_REGISTRY}
+          "
+        env:
+          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+        displayName: 'Publish Split Release Artifacts to OCI Registry'
+      - bash: |
+          set -euo pipefail
+          source $(bash-lib)
+          sha="$(release_sha)"
+          tell_slack "SDK release \`$(release_tag)\` (\`${sha:0:8}\`) just pushed to Artifactory." \
+                     "$(Slack.team-releases)"
+        displayName: 'Notify Slack of Split Release'
+    - ${{ if not(and(eq(parameters.mode, 'snapshot'), parameters.publishing_enabled)) }}:
+      - bash: |
+          set -euo pipefail
+          cd "$(Build.StagingDirectory)/split-release/split-release"
+          bucket="gs://daml-binaries/split-releases/$(release_tag)"
+          ls -1 damlc-* | while read -r f; do
+            echo "Would copy: $f -> $bucket/$f"
+          done
+          find daml-libs/daml-script -type f | sort | while read -r f; do
+            echo "Would copy: $f -> $bucket/${f#daml-libs/}"
+          done
+        displayName: 'Upload Split Release Artifacts to GCS (print only)'
+      - bash: |
+          set -euo pipefail
+          ./ci/publish-artifactory.sh "$(Build.StagingDirectory)" $(release_tag) split
+        env:
+          DRY_RUN: 'true'
+        displayName: 'Publish Split Release Artifacts to Artifactory (print only)'
+      - bash: |
+          set -euo pipefail
+          if [[ "$(release_tag)" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            DPM_REGISTRY="europe-docker.pkg.dev/da-images/public"
+          else
+            DPM_REGISTRY="europe-docker.pkg.dev/da-images/public-unstable"
+          fi
+          ./ci/publish-oci.sh "$(Build.StagingDirectory)" $(release_tag) "$DPM_REGISTRY"
+        env:
+          DRY_RUN: 'true'
+        displayName: 'Publish Split Release Artifacts to OCI Registry (print only)'
+      - ${{ if eq(parameters.mode, 'pr') }}:
+        - bash: |
+            set -euo pipefail
+            tag="internal-$(release_tag)"
+            echo "Would run: git tag -a $tag $(release_sha) -m \"Internal SDK release $tag\""
+            echo "Would run: git push origin $tag"
+          displayName: 'Tag Release in Git (print only)'
+      - bash: |
+          set -euo pipefail
+          sha="$(release_sha)"
+          echo "Would tell Slack (team-releases): SDK release \`$(release_tag)\` (\`${sha:0:8}\`) just pushed to Artifactory."
+        displayName: 'Notify Slack of Split Release (print only)'
     - bash: |
         set -euo pipefail
         cd "$(Build.StagingDirectory)"
@@ -139,3 +214,13 @@ jobs:
         done
         echo "  total: $(find release-artifacts split-release -type f | wc -l) files"
       displayName: 'Split Release - File list'
+    - ${{ if and(eq(parameters.mode, 'snapshot'), parameters.publishing_enabled) }}:
+      - template: tell-slack-failed.yml
+        parameters:
+          trigger_sha: '$(trigger_sha)'
+      - bash: (cd sdk && bazelisk shutdown) || true
+        displayName: 'Stop Bazel'
+        condition: always()
+      - bash: ci/clean-bazel-build-folder.sh
+        displayName: 'Clean local Bazel build folder'
+        condition: always()
