@@ -200,6 +200,15 @@ A **node** is one of the following:
    * The **exhaustive** flag, which records whether the result contains strictly fewer contract IDs 
      than the number of contracts that were requested.
 
+.. _def-node-on:
+
+.. admonition:: Definition: nodes on contracts and keys
+
+   A **Create** node is **on** the contract it creates, and an **Exercise** or a **Fetch** node is
+   **on** its input contract. A **QueryByKey** node is not on any contract.
+
+   A node is **on** a key `k` if it is on a contract with key `k` or if it is a **QueryByKey**
+   node for `k`.
 
 An **action** consists of a **root node** and a list of **consequences**, which are themselves actions.
 This gives rise to the tree structure of an action: The root node of an action has as children the root nodes of its consequences.
@@ -252,7 +261,7 @@ node.
 .. note::
    Several contracts with the same key may be active at the same time.
    The maintainers of a key are responsible for the :ref:`consistency of key lookups
-   <da-model-key-consistency>` within a transaction.
+   <da-model-key-consistency>`: lookups must agree with each other and report only active contracts.
 
 Examples
 ========

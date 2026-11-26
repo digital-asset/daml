@@ -58,7 +58,6 @@ Intuitively, the allowed actions are:
 #. **QueryByKey** actions corresponding to a ``queryNByKey`` update statement for the given key.
    The result of the action lists the contract IDs that the statement returned,
    and the action is exhaustive if fewer contracts were returned than the statement asked for.
-   The maintainers of the key are the actors.
 
 An instance of a Daml template, that is, a **Daml contract**,
 is a triple of:

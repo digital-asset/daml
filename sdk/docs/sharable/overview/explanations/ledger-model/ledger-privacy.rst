@@ -81,6 +81,8 @@ The informees for a node are the union of the sets marked with X in the followin
 
 For example, the informees of a **Create** node are the stakeholders of the created contract, that is, the signatories and observers.
 For consuming **Exercise** node, the informees consist of the stakeholders of the consumed contract, the action's actors and choice observers.
+Unlike a **Fetch**, a **QueryByKey** node informs only the key maintainers,
+not the other signatories of the contracts it uses; see :ref:`da-model-fetch-vs-query-by-key`.
 
 As a design decision, a contract observer is not informed about non-consuming **Exercise** and **Fetch** actions,
 unless they are explicitly among the actors or choice observers.
@@ -142,7 +144,7 @@ Informees should see the changes they are entitled to see,
 but this does not mean that they are entitled to see the entirety of any transaction that includes such a change.
 This is made precise through *projections* of a transaction,
 which define the view that a group of parties gets on a transaction.
-Intuitively, given a transaction within a commit, a group of parties sees only the subtransaction consisting of all actions on contracts
+Intuitively, given a transaction within a commit, a group of parties sees only the subtransaction consisting of all actions
 whose informees include at least one of the parties.
 Equivalently, the group of parties sees only those nodes whose witnesses include at least one of the parties.
 Thus, privacy is obtained on the subtransaction level.

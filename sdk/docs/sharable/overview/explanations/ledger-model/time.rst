@@ -54,8 +54,8 @@ Guarantees
 
 The ledger time of a valid transaction ``TX`` must fulfill the following rules:
 
-#. **Causal monotonicity**: for any action (create, exercise, fetch, lookup) in ``TX``
-   on a contract ``C``, ``lt_TX >= lt_C``,
+#. **Causal monotonicity**: for every contract ``C`` that ``TX`` creates or uses (by an exercise,
+   a fetch, or a query by key), ``lt_TX >= lt_C``,
    where ``lt_C`` is the ledger time of the transaction that created ``C``.
 
 #. **Bounded skew**: ``rt_TX - skew_min <= lt_TX <= rt_TX + skew_max``,

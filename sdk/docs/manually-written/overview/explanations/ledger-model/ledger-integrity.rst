@@ -21,7 +21,8 @@ At the core is the concept of a *valid ledger*: a change is permissible if addin
 * :ref:`Consistency <da-model-consistency>`:
   A consistent Ledger does not allow exercises and fetches on inactive contracts;
   that is, they cannot act on contracts that have not yet been created or that have already been consumed by an exercise.
-  Moreover, the lookups that a transaction performs on a :ref:`contract key <da-ledger-contract-keys>` must agree with each other.
+  Moreover, the lookups that a transaction performs on a :ref:`contract key <da-ledger-contract-keys>` must agree with each other
+  and report only active contracts.
 
 * :ref:`Conformance <da-model-conformance>`:
   A conformant Ledger contains only actions that are allowed by the smart contract logic of the created or used contract.
@@ -174,10 +175,11 @@ This section introduces the notions that are needed to make this precise:
 * :ref:`Internal consistency <da-model-internal-consistency>` ensures that all the operations on a contract happen in the expected order of creation, usage, archival,
   but does not require that all contracts are created; they may be merely referenced as inputs.
 
-* :ref:`(Contract) Consistency <da-model-contract-consistency>` strengthens internal consistency in that all used contracts must also have been created.
+* :ref:`(Contract) Consistency <da-model-contract-consistency>` strengthens internal consistency in that the contracts used by **Exercise** and **Fetch** nodes must also have been created.
 
 * :ref:`Key consistency <da-model-key-consistency>` ensures that the lookups that a transaction 
-  performs on a contract key agree with each other and with the other actions of the transaction.
+  performs on a contract key agree with each other and with the other actions of the transaction,
+  and that the contracts they report are active on the ledger.
 
 .. _da-model-execution-order:
 
@@ -232,6 +234,10 @@ then those nodes execute in an appropriate order, namely creation, usage, archiv
 Internal contract consistency does not require Create nodes for all contracts that are used.
 This way, internal contract consistency is meaningful for pieces of a ledger such as individual transactions or actions,
 which may use as inputs the contracts created outside of the piece.
+
+Recall that **QueryByKey** nodes are not :ref:`on <def-node-on>` any contract;
+:ref:`key consistency <da-model-key-consistency>` constrains the contracts they :ref:`use <def-action>` instead
+(see also :ref:`da-model-fetch-vs-query-by-key`).
 
 .. _def-internal-consistency:
 
@@ -296,7 +302,7 @@ The first condition is also satisfied because the Create node ① executes befor
 Definition
 ==========
 
-Consistency strengthens internal consistency in that used contracts actually have been created within the action, transaction, or ledger.
+Consistency strengthens internal consistency in that the contracts used by **Exercise** and **Fetch** nodes actually have been created within the action, transaction, or ledger.
 
 .. admonition:: Definition: consistency
 
@@ -304,7 +310,7 @@ Consistency strengthens internal consistency in that used contracts actually hav
    
    * It is internally consistent for the contract.
      
-   * If a node uses the contract, then there is also a node that creates the contract.
+   * If an **Exercise** or **Fetch** node uses the contract, then there is also a node that creates the contract.
 
    It is **consistent for a set of contracts** if it is consistent for all contracts in the set.
    It is **consistent** if it is consistent for all contracts.
@@ -327,7 +333,8 @@ contract ID. Key consistency constrains what these lookups may report.
 Contract keys are not unique: several contracts with the same key may be active at the same time,
 and creating a contract whose key is already in use is not a violation of key consistency. Key
 consistency therefore does not constrain **Create** nodes. Instead it constrains the lookups performed
-by a single transaction to ensure they agree with each other.
+by a single transaction to ensure they agree with each other, and requires the contracts they
+report to be active on the Ledger.
 
 We introduce two auxiliary notions. The first collects the contracts with key k mentioned by 
 a given transaction; these are the contracts that its lookups on k must agree about. The second 
@@ -360,7 +367,7 @@ Key consistency can now be stated. The order ≺ in the definition captures the 
 transaction uses to resolve the key: lookups report the contracts in ≺-order and never skip a
 contract in favour of a later one. The definition requires the transaction to be internally
 consistent for all contracts with key `k`. It also speaks of **QueryByKey** nodes only: for its
-purpose, an **Exercise** or a **Fetch** node whose by-key flag is set counts as a **QueryByKey**
+purpose, an **Exercise** or a **Fetch** node whose by-key flag is set also counts as a **QueryByKey**
 node on the key of its input contract, with that contract as the one-element non-exhaustive result.
 
 .. _def-key-consistency:
@@ -387,7 +394,13 @@ node on the key of its input contract, with that contract as the one-element non
 
    The transaction is **consistent for a set of keys** if it is consistent for every key in the set.
    It is **key consistent** if it is consistent for all keys.  
-   A Ledger is **consistent for a set of keys** if the transaction of every commit is, and 
+
+   A Ledger is **consistent for** `k` if the transaction of every commit is consistent for `k` and,
+   for every **QueryByKey** node `n` on `k` in the Ledger and every contract `c` in the result of `n`,
+   the Ledger contains a **Create** node on `c` that executes before `n` and no consuming
+   **Exercise** node on `c` that executes before `n`.
+
+   A Ledger is **consistent for a set of keys** if it is consistent for every key in the set, and
    **key consistent** if it is consistent for all keys.
 
 The two clauses Stability and Completeness rule out incoherent lookups. Suppose the contracts #1,
@@ -407,15 +420,12 @@ Finally, note that a lookup with an empty result is always exhaustive as asking 
 not allowed.
 
 .. important::
-   Key consistency relates only the nodes of a single transaction. In particular, the exhaustive
-   flag is a statement about the transaction and not about the ledger: it does **not** assert that
-   no other contract with the key is active on the ledger.
+   Key consistency of a transaction relates only the nodes of that transaction. In particular, the
+   exhaustive flag is a statement about the transaction and not about the ledger: it does **not**
+   assert that no other contract with the key is active on the ledger.
 
-   Note however that a **QueryByKey** action :ref:`uses <def-action>` the contracts in its result, so
-   :ref:`contract consistency <da-model-contract-consistency>` requires each reported contract to
-   have been created and not yet consumed. In short, a contract that is reported is active on the
-   ledger, but a contract that is missing from an exhaustive result need not be inactive on the
-   ledger.
+   Key consistency of a Ledger adds only that every reported contract is active on the ledger but
+   a contract that is missing from an exhaustive result need not be inactive on the ledger.
 
 
 .. _da-model-consistency-projection:
@@ -491,7 +501,7 @@ for `n`:sub:`2` as ② and `n`:sub:`1` as ④, the consuming exercise ② does n
    :alt: An inconsistent ledger where Alice's projection is consistent
 
 With signatories instead of stakeholders, this problem does not appear:
-A signatory is an informee of all nodes on the contract and therefore any node relevant for consistency for the contract is present in the signatory's projection.
+A signatory is an informee of all :ref:`nodes on the contract <def-node-on>` and therefore any node relevant for consistency for the contract is present in the signatory's projection.
 
 .. _da-model-key-consistency-projection:
 
@@ -499,27 +509,17 @@ Maintainers check key consistency on projections
 ------------------------------------------------
 
 Projection to a party `p` preserves and reflects key consistency for the keys that `p` is a
-maintainer of: a transaction is consistent for such a key exactly when its projection to `p` is.
+maintainer of: a transaction or Ledger is consistent for such a key exactly when its projection to `p` is.
 This follows from the requirement that the maintainers of a key be signatories of the contracts
 carrying it.
 
-The argument rests on the actions that touch a key at all.
-
-.. _def-action-on-key:
-
-.. admonition:: Definition: action on a key
-
-   An action is an **action on a key** `k` if it is
-
-   * a **Create**, **Exercise**, or **Fetch** action on a contract with key `k`, or
-
-   * a **QueryByKey** action on `k`.
+The argument rests on the :ref:`actions on <def-node-on>` a key `k`.
 
 Observe that the actions on `k` completely determine key consistency for `k`: the key contracts for
 `k` and their activeness, the requirement that the transaction be internally consistent for all
-contracts with key `k`, and the clauses Recency, Stability, and Completeness all speak of actions on
-`k` and of the execution order among them, and of nothing else (recall that a **QueryByKey** node on
-a key lists only contracts with that key).
+contracts with key `k`, the clauses Recency, Stability, and Completeness, and the Ledger-level
+condition on reported contracts all speak of actions on `k` and of the execution order among them,
+and of nothing else (recall that a **QueryByKey** node on a key lists only contracts with that key).
 
 Let `k` be a key and `P` a set of parties containing a maintainer of `k`. Every action on `k` has a
 maintainer of `k` among its informees: the maintainers are signatories of every contract with key
@@ -527,12 +527,40 @@ maintainer of `k` among its informees: the maintainers are signatories of every 
 They are also by definition the informees of every **QueryByKey** action on `k`. Projection to `P`
 therefore retains every action on `k`, in the same execution order.
 
-Consequently, projections both preserve and reflect key consistency for `k`: a transaction is
-consistent for `k` exactly when its projection to `P` is.
+Consequently, projections both preserve and reflect key consistency for `k`: a transaction or
+Ledger is consistent for `k` exactly when its projection to `P` is.
 
 For a set of parties `Q` that contains no maintainer of `k`, none of this holds. Projection to `Q`
 may drop a consuming **Exercise** on a contract with key `k`, which makes a subsequent lookup look as if
 it had skipped an active contract.
+
+.. _da-model-fetch-vs-query-by-key:
+
+Fetching versus querying by key
+-------------------------------
+
+Fetching or exercising a contract by key and querying the key both :ref:`use <def-action>` the
+contract, so in both cases it is an input of the transaction. They differ only in who validates
+that the contract is active, because the resulting nodes have different :ref:`informees <def-informee>`:
+
+.. list-table::
+   :widths: 30 35 35
+   :header-rows: 1
+
+   * -
+     - **Fetch** or **Exercise** by key
+     - **QueryByKey**
+   * - Informees
+     - all signatories of the contract and the actors, among others
+     - only the maintainers of the key
+   * - Activeness validated by
+     - all signatories (:ref:`contract consistency <da-model-contract-consistency>`)
+     - only the maintainers (:ref:`key consistency <da-model-key-consistency>`)
+
+So the activeness of a contract that is fetched or exercised by key is guaranteed as long as one of
+its signatories is honest, whereas the activeness of a contract reported by a **QueryByKey** node is
+guaranteed only as long as one of the maintainers is honest. A Daml program that needs the stronger
+guarantee for a queried contract can additionally fetch it or exercise it by its contract ID.
 
 .. _da-model-conformance:
 
