@@ -357,18 +357,16 @@ defines what it means for a contract to be considered active within a transactio
 
 .. admonition:: Definition: activeness within a transaction
 
-   Let `n` be a node of a transaction `tx`. A contract `c` is **active at** `n` **in** `tx`
+   Let `n` be a node of a transaction `tx`. A key contract `c` is **active at** `n` **in** `tx`
    if every **Create** node on `c` in `tx` executes before `n` and no consuming **Exercise**
    node on `c` in `tx` executes before `n`.
 
-Note that a contract that `tx` does not create is considered active until `tx` consumes it.
+Note that a key contract that `tx` does not create is considered active until `tx` consumes it.
 
 Key consistency can now be stated. The order ≺ in the definition captures the precedence that the
 transaction uses to resolve the key: lookups report the contracts in ≺-order and never skip a
 contract in favour of a later one. The definition requires the transaction to be internally
-consistent for all contracts with key `k`. It also speaks of **QueryByKey** nodes only: for its
-purpose, an **Exercise** or a **Fetch** node whose by-key flag is set also counts as a **QueryByKey**
-node on the key of its input contract, with that contract as the one-element non-exhaustive result.
+consistent for all contracts with key `k`.
 
 .. _def-key-consistency:
 
@@ -383,14 +381,20 @@ node on the key of its input contract, with that contract as the one-element non
      If both are created in `tx` and the **Create** node on `c`:sub:`2` executes before the **Create** node
      on `c`:sub:`1`, then `c`:sub:`1` ≺ `c`:sub:`2`.
 
-   * For every **QueryByKey** node `n` on `k` in `tx` with the result `c`:sub:`1`, …, `c`:sub:`m`,
-     writing `K` for the set of key contracts of `tx` for `k` that are active at `n`:
+   * For every node `n` in `tx` that is
+
+     * a **QueryByKey** node on `k` with the result `c`:sub:`1`, …, `c`:sub:`m`, or
+
+     * an **Exercise** or a **Fetch** node whose by-key flag is set and whose input contract
+       `c`:sub:`1` has key `k` (in which case `m` = 1),
+
+     writing `K` for the set of key contracts of `tx` for `k` that are active at `n` in `tx`:
 
      * **Stability.**
        `c`:sub:`1`, …, `c`:sub:`m` is a prefix of `K` ordered by ≺.
 
      * **Completeness.**
-       If `n` is exhaustive, then the prefix is all of `K`.
+       If `n` is an exhaustive **QueryByKey** node, then the prefix is all of `K`.
 
    The transaction is **consistent for a set of keys** if it is consistent for every key in the set.
    It is **key consistent** if it is consistent for all keys.  
@@ -421,10 +425,10 @@ not allowed.
 
 .. important::
    Key consistency of a transaction relates only the nodes of that transaction. In particular, the
-   exhaustive flag is a statement about the transaction and not about the ledger: it does **not**
-   assert that no other contract with the key is active on the ledger.
+   exhaustive flag is a statement about the transaction and not about the Ledger: it does **not**
+   assert that no other contract with the key is active on the Ledger.
 
-   Key consistency of a Ledger adds only that every reported contract is active on the ledger;
+   Key consistency of a Ledger adds only that every reported contract is active on the ledger but
    a contract that is missing from an exhaustive result need not be inactive on the ledger.
 
 
@@ -511,7 +515,9 @@ Maintainers check key consistency on projections
 Projection to a party `p` preserves and reflects key consistency for the keys that `p` is a
 maintainer of: a transaction or Ledger is consistent for such a key exactly when its projection to `p` is.
 This follows from the requirement that the maintainers of a key be signatories of the contracts
-carrying it.
+carrying it. Recall that :ref:`key consistency <def-key-consistency>` for `k` includes internal
+consistency for all contracts with key `k`, so this statement needs no separate assumption of
+internal consistency: projection preserves and reflects that part too.
 
 The argument rests on the :ref:`actions on <def-node-on>` a key `k`.
 
@@ -554,7 +560,7 @@ that the contract is active, because the resulting nodes have different :ref:`in
      - all signatories of the contract and the actors, among others
      - only the maintainers of the key
    * - Activeness validated by
-     - all signatories (:ref:`contract consistency <da-model-contract-consistency>`)
+     - at least all signatories (:ref:`contract consistency <da-model-contract-consistency>`)
      - only the maintainers (:ref:`key consistency <da-model-key-consistency>`)
 
 So the activeness of a contract that is fetched or exercised by key is guaranteed as long as one of
