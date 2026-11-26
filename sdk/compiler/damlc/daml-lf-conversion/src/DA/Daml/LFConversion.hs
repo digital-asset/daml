@@ -86,6 +86,7 @@ import           DA.Daml.LFConversion.Primitives
 import           DA.Daml.LFConversion.MetadataEncoding
 import           DA.Daml.LFConversion.ConvertM
 import           DA.Daml.LFConversion.ExternalWarnings (topLevelWarnings)
+import           DA.Daml.LFConversion.RewriteUniques (rewriteUniques)
 import           DA.Daml.LFConversion.Utils
 import           DA.Daml.Preprocessor (isInternal)
 import           DA.Daml.UtilGHC
@@ -793,7 +794,7 @@ convertModule
 convertModule lfVersion enableInterfaces warningFlags pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing warningFlags) $ do
     let
       env = mkEnv lfVersion enableInterfaces pkgMap stablePackages (cm_module coreModule)
-      mc = extractModuleContents env coreModule modIface details
+      mc = extractModuleContents env (rewriteUniques coreModule) modIface details
     defs <- convertModuleContents env mc
     pure (LF.moduleFromDefinitions (envLFModuleName env) (Just $ fromNormalizedFilePath file) flags defs)
     where
