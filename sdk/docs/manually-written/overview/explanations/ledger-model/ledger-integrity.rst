@@ -357,11 +357,11 @@ defines what it means for a contract to be considered active within a transactio
 
 .. admonition:: Definition: activeness within a transaction
 
-   Let `n` be a node of a transaction `tx`. A contract `c` is **active at** `n` **in** `tx`
+   Let `n` be a node of a transaction `tx`. A key contract `c` is **active at** `n` **in** `tx`
    if every **Create** node on `c` in `tx` executes before `n` and no consuming **Exercise**
    node on `c` in `tx` executes before `n`.
 
-Note that a contract that `tx` does not create is considered active until `tx` consumes it.
+Note that a key contract that `tx` does not create is considered active until `tx` consumes it.
 
 Key consistency can now be stated. The order ≺ in the definition captures the precedence that the
 transaction uses to resolve the key: lookups report the contracts in ≺-order and never skip a
@@ -384,7 +384,7 @@ node on the key of its input contract, with that contract as the one-element non
      on `c`:sub:`1`, then `c`:sub:`1` ≺ `c`:sub:`2`.
 
    * For every **QueryByKey** node `n` on `k` in `tx` with the result `c`:sub:`1`, …, `c`:sub:`m`,
-     writing `K` for the set of key contracts of `tx` for `k` that are active at `n`:
+     writing `K` for the set of key contracts of `tx` for `k` that are active at `n` in `tx`:
 
      * **Stability.**
        `c`:sub:`1`, …, `c`:sub:`m` is a prefix of `K` ordered by ≺.
@@ -421,8 +421,8 @@ not allowed.
 
 .. important::
    Key consistency of a transaction relates only the nodes of that transaction. In particular, the
-   exhaustive flag is a statement about the transaction and not about the ledger: it does **not**
-   assert that no other contract with the key is active on the ledger.
+   exhaustive flag is a statement about the transaction and not about the Ledger: it does **not**
+   assert that no other contract with the key is active on the Ledger.
 
    Key consistency of a Ledger adds only that every reported contract is active on the ledger but
    a contract that is missing from an exhaustive result need not be inactive on the ledger.
@@ -554,7 +554,7 @@ that the contract is active, because the resulting nodes have different :ref:`in
      - all signatories of the contract and the actors, among others
      - only the maintainers of the key
    * - Activeness validated by
-     - all signatories (:ref:`contract consistency <da-model-contract-consistency>`)
+     - at least all signatories (:ref:`contract consistency <da-model-contract-consistency>`)
      - only the maintainers (:ref:`key consistency <da-model-key-consistency>`)
 
 So the activeness of a contract that is fetched or exercised by key is guaranteed as long as one of
