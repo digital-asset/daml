@@ -16,5 +16,5 @@ da_haskell_binary(
         "text",
     ],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
+    visibility = ["//bazel/checks/security-evidence:__pkg__"],
 )

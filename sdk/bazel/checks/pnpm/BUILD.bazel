@@ -1,0 +1,37 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@host_git//:git.bzl", "GIT_PATH")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+_ENV = {
+    "GIT": GIT_PATH,
+    "PNPM": "$(rlocationpath @pnpm)",
+}
+
+py_binary(
+    name = "pnpm",
+    srcs = ["pnpm_lockfiles.py"],
+    data = ["@pnpm"],
+    env = _ENV,
+    main = "pnpm_lockfiles.py",
+    deps = ["@rules_python//python/runfiles"],
+)
+
+py_test(
+    name = "pnpm_test",
+    srcs = ["pnpm_lockfiles.py"],
+    args = ["check"],
+    data = [
+        "//:MODULE.bazel",
+        "@pnpm",
+    ],
+    env = _ENV,
+    main = "pnpm_lockfiles.py",
+    tags = [
+        "external",
+        "local",
+        "manual",
+    ],
+    deps = ["@rules_python//python/runfiles"],
+)

@@ -1,160 +1,226 @@
-# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+
+parameters:
+  - name: mode
+    type: string
+    values:
+      - pr
+      - snapshot
+  - name: publishing_enabled
+    type: boolean
+    default: false
 
 jobs:
 - job: split_release
-  displayName: "Split Release Artifacts"
-  dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
-  condition: and(succeeded(),
-                 eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                 or(eq(variables['Build.SourceBranchName'], 'main'),
-                    eq(variables['Build.SourceBranchName'], 'main-2.x')))
+  ${{ if eq(parameters.mode, 'pr') }}:
+    displayName: 'Split Release (smoke)'
+    dependsOn:
+      - linux
+      - macos
+      - windows
+  ${{ if eq(parameters.mode, 'snapshot') }}:
+    displayName: 'Split Release Artifacts'
+    dependsOn:
+      - check_for_release
+      - linux
+      - macos
+      - windows
+    condition: and(succeeded(),
+                   eq(dependencies.check_for_release.outputs['out.is_release'], 'true'))
+    variables:
+      release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
+      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
-  variables:
-    release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-    release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
-    trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+  workspace:
+    clean: all
   steps:
     - checkout: self
       clean: true
-      persistCredentials: true
+    - ${{ if eq(parameters.mode, 'pr') }}:
+      - bash: |
+          set -euo pipefail
+          if [ "$(Build.Reason)" = "PullRequest" ]; then
+            release_sha=$(git rev-parse HEAD^2)
+          else
+            release_sha=$(git rev-parse HEAD)
+          fi
+          trigger_sha=$(git rev-parse HEAD)
+          echo "release_tag: $(release_tag)"
+          echo "release_sha: $release_sha"
+          echo "trigger_sha: $trigger_sha"
+          echo "##vso[task.setvariable variable=release_sha]$release_sha"
+          echo "##vso[task.setvariable variable=trigger_sha]$trigger_sha"
+        displayName: 'Release metadata'
+    - ${{ if eq(parameters.mode, 'snapshot') }}:
+      - bash: |
+          set -euo pipefail
+          git checkout $(release_sha)
+          echo "release_tag: $(release_tag)"
+          echo "release_sha: $(release_sha)"
+          echo "trigger_sha: $(trigger_sha)"
+        displayName: 'Checkout Release Commit'
+    - ${{ if and(eq(parameters.mode, 'snapshot'), parameters.publishing_enabled) }}:
+      - template: bash-lib.yml
+        parameters:
+          var_name: bash-lib
+      - bash: |
+          set -euo pipefail
+          ci/clean-bazel-build-folder.sh
+          printf '%s\n' \
+            'startup --output_user_root=../../daml_build/user_root' \
+            'build --disk_cache=' \
+            'common --repository_cache=../../daml_build/repository_cache' \
+            > sdk/.bazelrc.local
+        displayName: 'Local Bazel build folder'
+      - bash: ci/dev-env-install.sh
+        displayName: 'Build/Install the Developer Environment'
+    - download: current
+      patterns: '**/*-release.tar'
+      displayName: 'Download Release Artifacts'
     - bash: |
         set -euo pipefail
-        git checkout $(release_sha)
-      name: checkout_release
-      displayName: "Checkout Release Commit"
-    - template: bash-lib.yml
-      parameters:
-        var_name: bash-lib
-    - bash: |
-        set -euo pipefail
-        major=$(cat sdk/NIGHTLY_PREFIX | awk -F. '{print $1}')
-        minor=$(cat sdk/NIGHTLY_PREFIX | awk -F. '{print $2}')
-        setvar() {
-          echo "Setting '$1' to '$2'"
-          echo "##vso[task.setvariable variable=$1]$2"
-        }
-        if [ "$major" = "2" ] && [ "$minor" -lt "9" ]; then
-          setvar skip_arm true
-        else
-          setvar skip_arm false
-        fi
-      displayName: "Set skip_arm variable"
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifactName: linux-intel-release
-        targetPath: $(Build.StagingDirectory)/release-artifacts
-      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
-      displayName: "Download Linux Intel Release Artifacts"
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifactName: linux-arm-release
-        targetPath: $(Build.StagingDirectory)/release-artifacts
-      condition: and(succeeded(),
-                     not(eq(variables.skip_arm, 'true')),
-                     not(eq(variables['skip-github'], 'TRUE')))
-      displayName: "Download Linux ARM Release Artifacts"
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifactName: macos-release
-        targetPath: $(Build.StagingDirectory)/release-artifacts
-      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
-      displayName: "Download macOS Release Artifacts"
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifactName: windows-release
-        targetPath: $(Build.StagingDirectory)/release-artifacts
-      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
-      displayName: "Download Windows Release Artifacts"
-    - bash: |
-        set -euo pipefail
-        cd sdk
-        # Note: this gets dev-env from the release commit, not the trigger commit
-        eval "$(./dev-env/bin/dade-assist)"
-        KEY_FILE=$(mktemp)
-        GPG_DIR=$(mktemp -d)
-        cleanup() {
-            rm -rf $KEY_FILE $GPG_DIR
-        }
-        trap cleanup EXIT
-        echo "$GPG_KEY" | base64 -d > $KEY_FILE
-        gpg --homedir $GPG_DIR --no-tty --quiet --import $KEY_FILE
-        # For now we only sign artifactory artifacts here and leave signing of artifacts
-        # published to GH to the assembly repo.
-        cd $(Build.StagingDirectory)/release-artifacts/artifactory
-        for f in *; do
-            gpg --homedir $GPG_DIR -ab $f
+        dir="$(Build.StagingDirectory)/release-artifacts"
+        mkdir -p "$dir"
+        for archive in "$(Pipeline.Workspace)"/*-release/*-release.tar; do
+          echo "Unpacking $archive"
+          tar -xkf "$archive" -C "$dir"
         done
-      displayName: 'Sign Artifactory Artifacts'
-      env:
-        GPG_KEY: $(gpg-code-signing)
-    - bash: |
-        set -eou pipefail
-        # Note: this gets dev-env from the release commit, not the trigger commit
-        eval "$(cd sdk; ./dev-env/bin/dade-assist)"
-        mkdir -p $(Build.StagingDirectory)/split-release
-        ./ci/assembly-split-release-artifacts.sh $(release_tag) $(Build.StagingDirectory)/release-artifacts $(Build.StagingDirectory)/split-release
-        jq -n \
-           --arg commit $(release_sha) \
-           --arg version $(release_tag) \
-           --arg trigger $(trigger_sha) \
-           '{$commit, $version, $trigger}' \
-           > $(Build.StagingDirectory)/split-release/split-release/info.json
-      displayName: "Split Release Artifacts"
+      displayName: 'Unpack Release Artifacts'
+    - ${{ if and(eq(parameters.mode, 'snapshot'), parameters.publishing_enabled) }}:
+      - bash: |
+          set -euo pipefail
+          KEY_FILE=$(mktemp)
+          GPG_DIR=$(mktemp -d)
+          cleanup() {
+              rm -rf $KEY_FILE $GPG_DIR
+          }
+          trap cleanup EXIT
+          echo "$GPG_KEY" | base64 -d > $KEY_FILE
+          gpg --homedir $GPG_DIR --no-tty --quiet --import $KEY_FILE
+          cd "$(Build.StagingDirectory)/release-artifacts/artifactory"
+          for f in *; do
+              gpg --homedir $GPG_DIR -ab $f
+          done
+        env:
+          GPG_KEY: $(gpg-code-signing)
+        displayName: 'Sign Artifactory Artifacts'
+    - ${{ if not(and(eq(parameters.mode, 'snapshot'), parameters.publishing_enabled)) }}:
+      - bash: |
+          set -euo pipefail
+          cd "$(Build.StagingDirectory)/release-artifacts/artifactory"
+          for f in *; do
+            echo "Would sign: gpg -ab $f"
+          done
+        displayName: 'Sign Artifactory Artifacts (print only)'
     - bash: |
         set -euo pipefail
-        cd sdk
-        # Note: this gets dev-env from the release commit, not the trigger commit
-        eval "$(./dev-env/bin/dade-assist)"
-        source $(bash-lib)
-        cd $(Build.StagingDirectory)/split-release/split-release
-        for f in "damlc-*" daml-libs/daml-script; do
-          gcs "$GCRED" cp -r "$f" "gs://daml-binaries/split-releases/$(release_tag)/"
+        out="$(Build.StagingDirectory)/split-release"
+        mkdir -p "$out"
+        ./ci/assembly-split-release-artifacts.sh $(release_tag) "$(Build.StagingDirectory)/release-artifacts" "$out"
+        printf '{\n  "commit": "%s",\n  "version": "%s",\n  "trigger": "%s"\n}\n' \
+          "$(release_sha)" "$(release_tag)" "$(trigger_sha)" \
+          > "$out/split-release/info.json"
+        cat "$out/split-release/info.json"
+      displayName: 'Split Release Artifacts'
+    - ${{ if and(eq(parameters.mode, 'snapshot'), parameters.publishing_enabled) }}:
+      - bash: |
+          set -euo pipefail
+          source $(bash-lib)
+          cd "$(Build.StagingDirectory)/split-release/split-release"
+          for f in "damlc-*" daml-libs/daml-script; do
+            gcs "$GCRED" cp -r "$f" "gs://daml-binaries/split-releases/$(release_tag)/"
+          done
+        env:
+          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+        displayName: 'Upload Split Release Artifacts to GCS'
+      - bash: |
+          set -euo pipefail
+          ./ci/publish-artifactory.sh "$(Build.StagingDirectory)" $(release_tag) split
+        env:
+          AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
+        displayName: 'Publish Split Release Artifacts to Artifactory'
+      - bash: |
+          set -euo pipefail
+          source $(bash-lib)
+          if [[ "$(release_tag)" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            DPM_REGISTRY="europe-docker.pkg.dev/da-images/public"
+          else
+            DPM_REGISTRY="europe-docker.pkg.dev/da-images/public-unstable"
+          fi
+          wrap_gcloud "$GCRED" "
+            gcloud auth configure-docker --quiet ${DPM_REGISTRY%%/*}
+            ./ci/publish-oci.sh $(Build.StagingDirectory) $(release_tag) ${DPM_REGISTRY}
+          "
+        env:
+          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+        displayName: 'Publish Split Release Artifacts to OCI Registry'
+      - bash: |
+          set -euo pipefail
+          source $(bash-lib)
+          sha="$(release_sha)"
+          tell_slack "SDK release \`$(release_tag)\` (\`${sha:0:8}\`) just pushed to Artifactory." \
+                     "$(Slack.team-releases)"
+        displayName: 'Notify Slack of Split Release'
+    - ${{ if not(and(eq(parameters.mode, 'snapshot'), parameters.publishing_enabled)) }}:
+      - bash: |
+          set -euo pipefail
+          cd "$(Build.StagingDirectory)/split-release/split-release"
+          bucket="gs://daml-binaries/split-releases/$(release_tag)"
+          ls -1 damlc-* | while read -r f; do
+            echo "Would copy: $f -> $bucket/$f"
+          done
+          find daml-libs/daml-script -type f | sort | while read -r f; do
+            echo "Would copy: $f -> $bucket/${f#daml-libs/}"
+          done
+        displayName: 'Upload Split Release Artifacts to GCS (print only)'
+      - bash: |
+          set -euo pipefail
+          ./ci/publish-artifactory.sh "$(Build.StagingDirectory)" $(release_tag) split
+        env:
+          DRY_RUN: 'true'
+        displayName: 'Publish Split Release Artifacts to Artifactory (print only)'
+      - bash: |
+          set -euo pipefail
+          if [[ "$(release_tag)" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            DPM_REGISTRY="europe-docker.pkg.dev/da-images/public"
+          else
+            DPM_REGISTRY="europe-docker.pkg.dev/da-images/public-unstable"
+          fi
+          ./ci/publish-oci.sh "$(Build.StagingDirectory)" $(release_tag) "$DPM_REGISTRY"
+        env:
+          DRY_RUN: 'true'
+        displayName: 'Publish Split Release Artifacts to OCI Registry (print only)'
+      - ${{ if eq(parameters.mode, 'pr') }}:
+        - bash: |
+            set -euo pipefail
+            tag="internal-$(release_tag)"
+            echo "Would run: git tag -a $tag $(release_sha) -m \"Internal SDK release $tag\""
+            echo "Would run: git push origin $tag"
+          displayName: 'Tag Release in Git (print only)'
+      - bash: |
+          set -euo pipefail
+          sha="$(release_sha)"
+          echo "Would tell Slack (team-releases): SDK release \`$(release_tag)\` (\`${sha:0:8}\`) just pushed to Artifactory."
+        displayName: 'Notify Slack of Split Release (print only)'
+    - bash: |
+        set -euo pipefail
+        cd "$(Build.StagingDirectory)"
+        find release-artifacts split-release -type f | sort | while read -r f; do
+          printf '%6s  %s  %s\n' "$(du -h "$f" | cut -f1)" "$(sha256sum "$f" | cut -d' ' -f1)" "$f"
         done
-      name: gcs_for_canton
-      displayName: "Upload Split Release Artifacts to GCS"
-      env:
-        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-    - bash: |
-        set -euo pipefail
-        # Note: this gets dev-env from the release commit, not the trigger commit
-        eval "$(cd sdk; dev-env/bin/dade-assist)"
-        ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag)
-      name: publish_to_artifactory
-      displayName: "Publish Split Release Artifacts to Artifactory"
-      env:
-        AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
-    - bash: |
-        set -euo pipefail
-        # Note: this gets dev-env from the release commit, not the trigger commit
-        eval "$(cd sdk; ./dev-env/bin/dade-assist)"
-        source $(bash-lib)
-        # On main this job only runs for ci/daily-snapshot.yml, i.e. snapshots.
-        # Official releases are published by the copy of this file on the
-        # release-trigger branch, which picks the registry from the version.
-        DPM_REGISTRY="europe-docker.pkg.dev/da-images/public-unstable"
-        wrap_gcloud "$GCRED" "
-          gcloud auth configure-docker --quiet ${DPM_REGISTRY%%/*}
-          ./ci/publish-oci.sh $(Build.StagingDirectory) $(release_tag) ${DPM_REGISTRY}
-        "
-      name: publish_to_oci
-      displayName: "Publish Split Release Artifacts to OCI Registry"
-      env:
-        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      condition: and(not(startsWith(variables['release_tag'], '2.')), not(startsWith(variables['release_tag'], '3.3')))
-    - bash: |
-        set -euo pipefail
-        # Note: this gets dev-env from the release commit, not the trigger commit
-        eval "$(cd sdk; dev-env/bin/dade-assist)"
-        source $(bash-lib)
-        sha=$(release_sha)
-        short_sha=${sha:0:8}
-        tell_slack "SDK release \`$(release_tag)\` (\`$short_sha\`) just pushed to Artifactory." \
-                   "$(Slack.team-releases)"
-      displayName: "Notify Slack of Split Release"
-    - template: tell-slack-failed.yml
-      parameters:
-        trigger_sha: '$(trigger_sha)'
-
+        echo "  total: $(find release-artifacts split-release -type f | wc -l) files"
+      displayName: 'Split Release - File list'
+    - ${{ if and(eq(parameters.mode, 'snapshot'), parameters.publishing_enabled) }}:
+      - template: tell-slack-failed.yml
+        parameters:
+          trigger_sha: '$(trigger_sha)'
+      - bash: (cd sdk && bazelisk shutdown) || true
+        displayName: 'Stop Bazel'
+        condition: always()
+      - bash: ci/clean-bazel-build-folder.sh
+        displayName: 'Clean local Bazel build folder'
+        condition: always()

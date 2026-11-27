@@ -10,6 +10,10 @@
 #     deps = ["haskell-app"],
 # )
 
+load("@os_info//:os_info.bzl", "is_darwin")
+
+_UTF8_LOCALE = "en_US.UTF-8" if is_darwin else "C.UTF-8"
+
 HaskellHLintInfo = provider(
     doc = "Provider that collects files produced by linters",
     fields = {
@@ -60,6 +64,12 @@ def _haskell_hlint_aspect_impl(target, ctx):
         progress_message = "HaskellHLint {}".format(ctx.label),
         executable = ctx.executable._hlint,
         arguments = args,
+        # The Bazel sandbox strips env vars (`exec env -`), defaulting the
+        # locale to C. Source files contain Unicode (e.g. curly quotes in
+        # comments); HLint's GHC runtime then crashes when writing the parse
+        # report with `<stdout>: commitBuffer: invalid argument (invalid
+        # character)`. Force a UTF-8 locale so output encoding works.
+        env = {"LANG": _UTF8_LOCALE, "LC_ALL": _UTF8_LOCALE},
     )
 
     outputs = [output]
@@ -76,9 +86,9 @@ haskell_hlint_aspect = aspect(
     attrs = {
         "_hlint": attr.label(
             executable = True,
-            cfg = "host",
+            cfg = "exec",
             allow_single_file = True,
-            default = Label("@hlint_nix//:bin/hlint"),
+            default = Label("//bazel/checks/hlint:binary"),
         ),
         "_hlint_yaml": attr.label(
             allow_single_file = True,

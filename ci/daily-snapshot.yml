@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 pr: none
@@ -12,19 +12,43 @@ parameters:
   type: string
   default: HEAD
 
+variables:
+  bazel_flags: >-
+    --remote_upload_local_results=true
+  build_cpu_flags: --local_resources=cpu=HOST_CPUS
+  ${{ if in(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/main-2.x') }}:
+    publishing_enabled: 'true'
+  ${{ if notIn(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/main-2.x') }}:
+    publishing_enabled: 'false'
+
 jobs:
 - job: check_for_release
   pool:
     name: "ubuntu_20_04"
     demands: assignment -equals default
   steps:
+    - checkout: self
+      clean: true
     - template: bash-lib.yml
       parameters:
         var_name: bash-lib
+    - template: bazelisk-unix.yml
+    - bash: |
+        set -euo pipefail
+        ci/clean-bazel-build-folder.sh
+        printf '%s\n' \
+          'startup --output_user_root=../../daml_build/user_root' \
+          'build --disk_cache=' \
+          'common --repository_cache=../../daml_build/repository_cache' \
+          > sdk/.bazelrc.local
+      displayName: 'Local Bazel build folder'
+    - template: bazel-tool-unix.yml
+      parameters:
+        target: //bazel/tools:jq
+        name: jq
     - bash: |
         set -euo pipefail
         cd sdk
-        eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
 
         prefix=$(git show ${{ parameters.commit }}:sdk/NIGHTLY_PREFIX)
@@ -64,13 +88,20 @@ jobs:
             exit 1
             ;;
         esac
-        setvar scala_2_13 true
       name: out
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
-- template: build.yml
+    - bash: (cd sdk && bazelisk shutdown) || true
+      displayName: 'Stop Bazel'
+      condition: always()
+    - bash: ci/clean-bazel-build-folder.sh
+      displayName: 'Clean local Bazel build folder'
+      condition: always()
+- template: build-jobs.yml
   parameters:
-    test_mode: main
+    mode: snapshot
+    publishing_enabled: ${{ eq(variables.publishing_enabled, 'true') }}
 - template: split-release-job.yml
-- job: release
-  condition: false
+  parameters:
+    mode: snapshot
+    publishing_enabled: ${{ eq(variables.publishing_enabled, 'true') }}

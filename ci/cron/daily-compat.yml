@@ -1,19 +1,10 @@
-# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-# Do not run on PRs
 pr: none
 
-# Do not run on merge to main
 trigger: none
 
-# Do run on a schedule (daily)
-#
-# Note: machines are killed every day at 4AM UTC, so we need to either:
-# - run sufficiently before that that this doesn't get killed, or
-# - run sufficiently after that that machines are initialized.
-#
-# Targeting 6AM UTC seems to fit that.
 schedules:
 - cron: "0 6 * * *"
   displayName: daily checks and reporting
@@ -22,20 +13,16 @@ schedules:
     - main
   always: true
 
-jobs:
-  - job: compatibility_ts_libs
-    timeoutInMinutes: 60
-    pool:
-      name: ubuntu_20_04
-      demands: assignment -equals default
-    steps:
-      - checkout: self
-        clean: true
-      - template: ../clean-up.yml
-      - template: ../compatibility_ts_libs.yml
+variables:
+  bazel_flags: >-
+    --remote_upload_local_results=true
+  ${{ if in(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/main-2.x') }}:
+    publishing_enabled: 'true'
+  ${{ if notIn(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/main-2.x') }}:
+    publishing_enabled: 'false'
 
+jobs:
   - job: compatibility_linux
-    dependsOn: compatibility_ts_libs
     timeoutInMinutes: 720
     pool:
       name: ubuntu_20_04
@@ -43,11 +30,59 @@ jobs:
     steps:
       - checkout: self
         clean: true
-      - template: ../clean-up.yml
-      - template: ../compatibility.yml
+      - template: ../bazelisk-unix.yml
+      - bash: |
+          set -euo pipefail
+          ci/clean-bazel-build-folder.sh
+          printf '%s\n' \
+            'startup --output_user_root=../../daml_build/user_root' \
+            'build --disk_cache=' \
+            'common --repository_cache=../../daml_build/repository_cache' \
+            > sdk/.bazelrc.local
+        displayName: 'Local Bazel build folder'
+      - bash: |
+          set -uo pipefail
+          cache_flags="--remote_cache=https://bazel-cache.da-ext.net/202610"
+          key=""
+          if [ -n "${GCRED:-}" ]; then
+            key="${AGENT_TEMPDIRECTORY:-/tmp}/gcred-${BUILD_BUILDID}.json"
+            rm -f "$key"
+            umask 077
+            set -C
+            if printf '%s' "$GCRED" > "$key"; then
+              cache_flags="$cache_flags --google_credentials=$key"
+              echo "credentials present; uploads enabled"
+            else
+              echo "could not stage credentials; falling back to read-only"
+              key=""
+              cache_flags="$cache_flags --remote_upload_local_results=false"
+            fi
+            set +C
+          else
+            cache_flags="$cache_flags --remote_upload_local_results=false"
+            echo "no credentials; remote cache is read-only for this job"
+          fi
+          echo "##vso[task.setvariable variable=gcred_key]$key"
+          echo "##vso[task.setvariable variable=cache_flags]$cache_flags"
+        displayName: 'Configure remote cache'
+        env:
+          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - bash: |
+          set -euo pipefail
+          sdk/compatibility/test.sh $(bazel_flags) $(cache_flags)
+        displayName: 'Run tests'
+      - bash: |
+          if [ -n "${KEY:-}" ]; then rm -f "$KEY"; fi
+          (cd sdk && bazelisk shutdown) || true
+        displayName: 'Remove credentials'
+        condition: always()
+        env:
+          KEY: $(gcred_key)
+      - bash: ci/clean-bazel-build-folder.sh
+        displayName: 'Clean local Bazel build folder'
+        condition: always()
 
   - job: compatibility_windows
-    dependsOn: compatibility_ts_libs
     timeoutInMinutes: 720
     pool:
       name: windows-pool
@@ -55,12 +90,79 @@ jobs:
     steps:
       - checkout: self
         clean: true
-      - template: ../compatibility-windows.yml
-      - task: PublishBuildArtifacts@1
-        condition: succeededOrFailed()
-        inputs:
-          pathtoPublish: '$(Build.StagingDirectory)'
-          artifactName: 'Bazel Compatibility Logs'
+      - template: ../bazelisk-windows.yml
+      - powershell: |
+          $ErrorActionPreference = 'Stop'
+          .\ci\clean-bazel-build-folder.ps1
+          Set-Content -Path sdk\.bazelrc.local -Value @(
+            'startup --output_user_root=../../daml_build/user_root'
+            'startup --output_base=C:/b'
+            'build --disk_cache='
+            'common --repository_cache=../../daml_build/repository_cache'
+          )
+        displayName: 'Short output base and local Bazel build folder'
+      - powershell: |
+          $ErrorActionPreference = 'Stop'
+          Set-Location sdk
+          .\setup-windows.ps1
+          Write-Host "##vso[task.setvariable variable=BAZEL_SH]$env:BAZEL_SH"
+
+          $bashDir = Split-Path -Parent ($env:BAZEL_SH -replace '/', '\')
+          if (-not (Test-Path (Join-Path $bashDir 'tar.exe'))) { throw "tar.exe not found in $bashDir" }
+          $shellRoot = Split-Path -Parent (Split-Path -Parent $bashDir)
+          $gitDir = @('cmd', 'mingw64\bin') |
+            ForEach-Object { Join-Path $shellRoot $_ } |
+            Where-Object { Test-Path (Join-Path $_ 'git.exe') } |
+            Select-Object -First 1
+          if (-not $gitDir) { throw "git.exe not found under $shellRoot (looked in cmd, mingw64\bin)" }
+          Write-Host "appending to PATH: $bashDir;$gitDir"
+          $env:PATH = "$env:PATH;$bashDir;$gitDir"
+          Write-Host "##vso[task.setvariable variable=PATH]$env:PATH"
+
+          Write-Host "shutting down the Bazel server so it re-reads PATH"
+          & bazelisk.exe shutdown 2>&1 | Out-Null
+        displayName: 'Provision build shell'
+      - powershell: |
+          $cacheFlags = '--remote_cache=https://bazel-cache.da-ext.net/202610'
+          $key = ''
+          if ($env:GCRED) {
+            $tempDir = if ($env:AGENT_TEMPDIRECTORY) { $env:AGENT_TEMPDIRECTORY } else { [System.IO.Path]::GetTempPath() }
+            $key = Join-Path $tempDir "gcred-$($env:BUILD_BUILDID).json"
+            try {
+              Remove-Item -Force -ErrorAction SilentlyContinue $key
+              [System.IO.File]::WriteAllText($key, $env:GCRED)
+              $cacheFlags = "$cacheFlags --google_credentials=$($key -replace '\\', '/')"
+              Write-Host 'credentials present; uploads enabled'
+            } catch {
+              Write-Host 'could not stage credentials; falling back to read-only'
+              $key = ''
+              $cacheFlags = "$cacheFlags --remote_upload_local_results=false"
+            }
+          } else {
+            $cacheFlags = "$cacheFlags --remote_upload_local_results=false"
+            Write-Host 'no credentials; remote cache is read-only for this job'
+          }
+          Write-Host "##vso[task.setvariable variable=gcred_key]$key"
+          Write-Host "##vso[task.setvariable variable=cache_flags]$cacheFlags"
+        displayName: 'Configure remote cache'
+        env:
+          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - powershell: |
+          $ErrorActionPreference = 'Stop'
+          Set-Location sdk
+          .\compatibility\test-windows.ps1 $(bazel_flags) $(cache_flags)
+        displayName: 'Run tests'
+      - powershell: |
+          if ($env:KEY) { Remove-Item -Force -ErrorAction SilentlyContinue $env:KEY }
+          Set-Location sdk
+          try { & bazelisk.exe shutdown 2>&1 | Out-Null } catch { }
+        displayName: 'Remove credentials'
+        condition: always()
+        env:
+          KEY: $(gcred_key)
+      - powershell: .\ci\clean-bazel-build-folder.ps1
+        displayName: 'Clean local Bazel build folder'
+        condition: always()
 
   - job: perf_speedy
     timeoutInMinutes: 120
@@ -79,7 +181,6 @@ jobs:
         displayName: 'Configure Bazel for root workspace'
         env:
           IS_FORK: $(System.PullRequest.IsFork)
-          # to upload to the bazel cache
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - template: ../bash-lib.yml
         parameters:
@@ -120,10 +221,20 @@ jobs:
     pool:
       name: ubuntu_20_04
       demands: assignment -equals default
-    condition: eq(variables['Build.SourceBranchName'], 'main')
+    condition: and(eq(variables['Build.SourceBranchName'], 'main'),
+                   eq('${{ variables.publishing_enabled }}', 'true'))
     steps:
       - checkout: self
         clean: true
+      - bash: |
+          set -euo pipefail
+          ci/clean-bazel-build-folder.sh
+          printf '%s\n' \
+            'startup --output_user_root=../../daml_build/user_root' \
+            'build --disk_cache=' \
+            'common --repository_cache=../../daml_build/repository_cache' \
+            > sdk/.bazelrc.local
+        displayName: 'Local Bazel build folder'
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
       - template: ../bash-lib.yml
@@ -131,7 +242,6 @@ jobs:
           var_name: bash_lib
       - bash: |
           set -euo pipefail
-          eval "$(cd sdk; dev-env/bin/dade assist)"
           source $(bash_lib)
 
           export AUTH="$(get_gh_auth_header)"
@@ -140,48 +250,16 @@ jobs:
         displayName: check releases
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - bash: (cd sdk && bazelisk shutdown) || true
+        displayName: 'Shut down Bazel'
+        condition: always()
+      - bash: ci/clean-bazel-build-folder.sh
+        displayName: 'Clean local Bazel build folder'
+        condition: always()
 
   - template: ../blackduck.yml
-
-  - job: run_notices_pr_build
-    timeoutInMinutes: 60
-    dependsOn: ["blackduck_scan"]
-    condition: and(succeeded(),
-                   or(eq(variables['Build.SourceBranchName'], 'main'),
-                      eq(variables['Build.SourceBranchName'], 'main-2.x')))
-    pool:
-      name: 'ubuntu_20_04'
-      demands: assignment -equals default
-    variables:
-      need_to_build: $[ dependencies.blackduck_scan.outputs['out.need_to_build'] ]
-    steps:
-      - checkout: self
-        clean: true
-        persistCredentials: true
-      - task: DownloadPipelineArtifact@2
-        displayName: 'Download NOTICES file'
-        inputs:
-          artifactName: notices
-          targetPath: $(Pipeline.Workspace)/notices
-        condition: and(succeeded(), eq(variables['need_to_build'], 'true'))
-      - template: ../bash-lib.yml
-        parameters:
-          var_name: bash_lib
-      - bash: |
-          set -euo pipefail
-          cd sdk
-          eval "$(./dev-env/bin/dade-assist)"
-          source "$(bash_lib)"
-          if [ "$(need_to_build)" == "true" ]; then
-              BRANCH="notices-update-$(Build.BuildId)"
-              cp "$(Pipeline.Workspace)/notices/NOTICES" NOTICES
-              git add NOTICES
-              open_superseding_pr "$BRANCH" "update NOTICES file" "" "$(Build.SourceBranchName)" "ci-generated-notices-update" "no-release-notes"
-              trigger_azure $AZURE_DEVOPS_EXT_PAT PRs --branch $BRANCH
-          fi
-        displayName: 'Open PR to update NOTICES file'
-        env:
-          AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
+    parameters:
+      publishing_enabled: ${{ eq(variables.publishing_enabled, 'true') }}
 
   - job: update_canton
     condition: not(eq(variables['Build.SourceBranchName'], 'not-main'))
@@ -193,6 +271,21 @@ jobs:
       - checkout: self
         clean: true
         persistCredentials: true
+      - bash: |
+          set -euo pipefail
+          ci/clean-bazel-build-folder.sh
+          printf '%s\n' \
+            'startup --output_user_root=../../daml_build/user_root' \
+            'build --disk_cache=' \
+            'common --repository_cache=../../daml_build/repository_cache' \
+            > sdk/.bazelrc.local
+        displayName: 'Local Bazel build folder'
+      - bash: ci/dev-env-install.sh
+        displayName: 'Build/Install the Developer Environment'
+      - template: ../bazel-tool-unix.yml
+        parameters:
+          target: '@dpm_binary//:oras'
+          name: oras
       - template: ../bash-lib.yml
         parameters:
           var_name: bash_lib
@@ -200,19 +293,18 @@ jobs:
           set -euo pipefail
 
           cd sdk
-          eval "$(./dev-env/bin/dade-assist)"
           source $(bash_lib)
 
-          git fetch
-          git checkout origin/$(Build.SourceBranchName)
+          source_branch="${BUILD_SOURCEBRANCH#refs/heads/}"
 
-          # Save old canton commit hash before refreshing
+          git fetch
+          git checkout "origin/$source_branch"
+
           old_canton_tag=$(grep 'CANTON_OPEN_SOURCE_TAG' canton/canton_version.bzl | sed 's/.*"\(.*\)".*/\1/')
           old_canton_commit="${old_canton_tag##*v}"
 
           version=$(ci/refresh-canton.sh)
 
-          # Track which generated files were actually updated
           update_bullets=""
           if ! git diff --quiet -- daml-lf/daml-lf-versions.json; then
             update_bullets="${update_bullets}- daml-lf/daml-lf-versions.json was updated by running //daml-lf:update-daml-lf-versions\n"
@@ -223,14 +315,13 @@ jobs:
 
           branch="main-canton-update-$version"
 
-          if git diff --exit-code origin/$(Build.SourceBranchName) -- canton daml-lf/daml-lf-versions.json daml-lf/daml-lf-features.json >/dev/null; then
+          if git diff --exit-code "origin/$source_branch" -- canton daml-lf/daml-lf-versions.json daml-lf/daml-lf-features.json >/dev/null; then
               echo "Already up-to-date with latest Canton source & snapshot."
           else
-              if [ "main" = "$(Build.SourceBranchName)" ]; then
+              if [ "main" = "$source_branch" ] && [ '${{ variables.publishing_enabled }}' = 'true' ]; then
                   git add canton/canton_version.bzl canton/shared_dependencies.json maven_install_2.13.json daml-lf/daml-lf-versions.json daml-lf/daml-lf-features.json
                   new_canton_commit="${version##*v}"
 
-                  # Build PR body with a list of canton commit descriptions between old and new
                   changelog=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
                     "https://api.github.com/repos/DACH-NY/canton/compare/${old_canton_commit}...${new_canton_commit}" \
                     | jq -r '
@@ -244,7 +335,6 @@ jobs:
                       | join("\n")
                       ')
 
-                  # Build optional header for generated file updates
                   updates_section=""
                   if [ -n "$update_bullets" ]; then
                     updates_section=$(printf "After updating canton, the following changes were made:\n%s\n" "$update_bullets")
@@ -255,11 +345,8 @@ jobs:
                   if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
                       echo "Branch $branch already exists on origin (opened by a previous run), not opening another PR."
                   else
-                      open_superseding_pr "$branch" "update canton to $version" "$body" "$(Build.SourceBranchName)" "ci-generated-canton-upgrade" "no-release-notes"
-                      az pipelines build queue --branch "$branch" \
-                                               --definition-name "PRs" \
-                                               --org "https://dev.azure.com/digitalasset" \
-                                               --project daml
+                      open_superseding_pr "$branch" "update canton to $version" "$body" "$source_branch" "ci-generated-canton-upgrade" "no-release-notes"
+                      trigger_azure "$AZURE_DEVOPS_EXT_PAT" PRs --branch "$branch"
                   fi
               else
                   echo "Would open PR if this were running on main."
@@ -268,10 +355,17 @@ jobs:
         env:
           GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
           AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
+      - bash: (cd sdk && bazelisk shutdown) || true
+        displayName: 'Shut down Bazel'
+        condition: always()
+      - bash: ci/clean-bazel-build-folder.sh
+        displayName: 'Clean local Bazel build folder'
+        condition: always()
 
   - job: compat_versions_pr
-    condition: or(eq(variables['Build.SourceBranchName'], 'main'),
-                  eq(variables['Build.SourceBranchName'], 'main-2.x'))
+    condition: and(or(eq(variables['Build.SourceBranchName'], 'main'),
+                      eq(variables['Build.SourceBranchName'], 'main-2.x')),
+                   eq('${{ variables.publishing_enabled }}', 'true'))
     pool:
       name: ubuntu_20_04
       demands: assignment -equals default
@@ -279,6 +373,15 @@ jobs:
     - checkout: self
       clean: true
       persistCredentials: true
+    - bash: |
+        set -euo pipefail
+        ci/clean-bazel-build-folder.sh
+        printf '%s\n' \
+          'startup --output_user_root=../../daml_build/user_root' \
+          'build --disk_cache=' \
+          'common --repository_cache=../../daml_build/repository_cache' \
+          > sdk/.bazelrc.local
+      displayName: 'Local Bazel build folder'
     - bash: ci/dev-env-install.sh
     - template: ../bash-lib.yml
       parameters:
@@ -286,12 +389,9 @@ jobs:
     - bash: |
         set -euo pipefail
         cd sdk
-        eval "$(./dev-env/bin/dade-assist)"
 
-        ## refresh tags, in case someone deleted one
         git fetch --prune --prune-tags
 
-        ## get latest version, in case it's already up to date
         git fetch origin
         git -c user.name="Azure Pipelines Daml Build" \
             -c user.email="support@digitalasset.com" \
@@ -299,34 +399,41 @@ jobs:
 
         source $(bash_lib)
 
-        cp .bazelrc compatibility/
         compatibility/update-versions.sh
-        git add compatibility/versions.bzl compatibility/maven_install.json
+        git add compatibility/versions.bzl
 
         if ! git diff --cached --quiet; then
           BRANCH=update-compat-versions-$(date -I)-$(Build.SourceBranchName)
           TITLE="update compat versions ($(date -I) $(Build.SourceBranchName))"
           BODY="If follow-up PRs are needed to fix this one, add a run-full-compat: true trailer to their commit message so the full compat suite runs on them too.\n\nrun-full-compat: true"
           open_superseding_pr "$BRANCH" "$TITLE" "$BODY" "$(Build.SourceBranchName)" "ci-generated-compat-versions-update"
-          trigger_azure $(System.AccessToken) PRs --branch $BRANCH
-          trigger_azure $(System.AccessToken) digital-asset.daml-daily-compat --branch $BRANCH
+          trigger_azure "$AZURE_DEVOPS_EXT_PAT" PRs --branch "$BRANCH"
+          trigger_azure "$AZURE_DEVOPS_EXT_PAT" digital-asset.daml-daily-compat --branch "$BRANCH"
         else
           echo "No changes"
         fi
+      env:
+        AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
+    - bash: (cd sdk && bazelisk shutdown) || true
+      displayName: 'Shut down Bazel'
+      condition: always()
+    - bash: ci/clean-bazel-build-folder.sh
+      displayName: 'Clean local Bazel build folder'
+      condition: always()
 
   - job: report
-    dependsOn: [compatibility_ts_libs, compatibility_linux, compatibility_windows,
+    dependsOn: [compatibility_linux, compatibility_windows,
                 perf_speedy, check_releases,
                 blackduck_scan, run_notices_pr_build, update_canton,
                 compat_versions_pr]
     condition: and(succeededOrFailed(),
                    or(eq(variables['Build.SourceBranchName'], 'main'),
-                      eq(variables['Build.SourceBranchName'], 'main-2.x')))
+                      eq(variables['Build.SourceBranchName'], 'main-2.x')),
+                   eq('${{ variables.publishing_enabled }}', 'true'))
     pool:
       name: ubuntu_20_04
       demands: assignment -equals default
     variables:
-      compatibility_ts_libs: $[ dependencies.compatibility_ts_libs.result ]
       compatibility_linux: $[ dependencies.compatibility_linux.result ]
       compatibility_windows: $[ dependencies.compatibility_windows.result ]
       perf_speedy: $[ dependencies.perf_speedy.result ]
@@ -337,6 +444,25 @@ jobs:
       update_canton: $[ dependencies.update_canton.result ]
       compat_versions_pr: $[ dependencies.compat_versions_pr.result ]
     steps:
+    - checkout: self
+      clean: true
+    - bash: |
+        set -euo pipefail
+        ci/clean-bazel-build-folder.sh
+        printf '%s\n' \
+          'startup --output_user_root=../../daml_build/user_root' \
+          'build --disk_cache=' \
+          'common --repository_cache=../../daml_build/repository_cache' \
+          > sdk/.bazelrc.local
+      displayName: 'Local Bazel build folder'
+    - bash: ci/dev-env-install.sh
+      displayName: 'Build/Install the Developer Environment'
+    - template: ../install-linux-tool.yml
+      parameters:
+        name: gh
+        url: https://github.com/cli/cli/releases/download/v2.105.0/gh_2.105.0_linux_amd64.tar.gz
+        sha256: 79e7ab5db738c48777b696e374f8b428f0647debfb424f44d2f426370407fe2f
+        archive_path: gh_2.105.0_linux_amd64/bin/gh
     - template: ../bash-lib.yml
       parameters:
         var_name: bash_lib
@@ -344,14 +470,12 @@ jobs:
         set -euo pipefail
 
         cd sdk
-        eval "$(./dev-env/bin/dade-assist)"
         source $(bash_lib)
 
         COMMIT_TITLE="$(escape_slack "$(git log --pretty=format:%s -n1)")"
         COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|${COMMIT_TITLE}>"
 
-        if [[ "$(compatibility_ts_libs)" == "Succeeded"
-           && "$(compatibility_linux)" == "Succeeded"
+        if [[ "$(compatibility_linux)" == "Succeeded"
            && "$(compatibility_windows)" == "Succeeded"
            && ("$(perf_speedy)" == "Succeeded" || "$(perf_speedy)" == "Skipped")
            && "$(check_releases)" == "Succeeded"
@@ -373,18 +497,14 @@ jobs:
 
         export GH_REPO=digital-asset/daml
 
-        # Day of week in UTC: 1=Monday .. 7=Sunday.
         dow=$(date -u +%u)
 
-        # Don't send the open-PRs report on weekends (Saturday/Sunday).
         if [ "$dow" != "6" ] && [ "$dow" != "7" ]; then
           prs_json=$(gh pr list --search "is:open author:app/azure-pipelines" --json title,url,createdAt)
           pr_list=$(echo "$prs_json" | jq -r \
             '.[] | "\(.createdAt[0:10]) <\(.url)|\(.title)>"' | grep -v 'rotate release duty')
           message=$(printf 'Open daml repo PRs to address:\n\n%s' "$pr_list")
 
-          # On Monday, the canton update PR we expect was created on Saturday
-          # (2 days ago); on other weekdays we expect one created today.
           if [ "$dow" = "1" ]; then
             expected_date=$(date -u -d "2 days ago" +%Y-%m-%d)
             when_label="on Saturday"
@@ -410,22 +530,51 @@ jobs:
         fi
       env:
         GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
+    - bash: (cd sdk && bazelisk shutdown) || true
+      displayName: 'Shut down Bazel'
+      condition: always()
+    - bash: ci/clean-bazel-build-folder.sh
+      displayName: 'Clean local Bazel build folder'
+      condition: always()
 
   - job: snapshots
     timeoutInMinutes: 60
-    condition: eq(variables['Build.SourceBranchName'], 'main')
+    condition: and(eq(variables['Build.SourceBranchName'], 'main'),
+                   eq('${{ variables.publishing_enabled }}', 'true'))
     pool:
       name: 'ubuntu_20_04'
       demands: assignment -equals default
     steps:
+      - checkout: self
+        clean: true
+      - template: ../bazelisk-unix.yml
       - bash: |
-          cd sdk
-          eval "$(./dev-env/bin/dade-assist)"
+          set -euo pipefail
+          ci/clean-bazel-build-folder.sh
+          printf '%s\n' \
+            'startup --output_user_root=../../daml_build/user_root' \
+            'build --disk_cache=' \
+            'common --repository_cache=../../daml_build/repository_cache' \
+            > sdk/.bazelrc.local
+        displayName: 'Local Bazel build folder'
+      - template: ../bazel-tool-unix.yml
+        parameters:
+          target: //bazel/tools:jq
+          name: jq
+      - template: ../bash-lib.yml
+        parameters:
+          var_name: bash_lib
+      - bash: |
+          set -euo pipefail
+          source $(bash_lib)
           sha=$(git rev-parse origin/main)
-          az pipelines run --org "https://dev.azure.com/digitalasset" \
-                            --project daml \
-                            --name "snapshot" \
-                            --commit-id main \
-                            --parameters "commit=$sha"
+          trigger_azure "$AZURE_DEVOPS_EXT_PAT" snapshot --branch main --parameters "commit=$sha"
+        displayName: 'Run snapshot pipeline'
         env:
           AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
+      - bash: (cd sdk && bazelisk shutdown) || true
+        displayName: 'Shut down Bazel'
+        condition: always()
+      - bash: ci/clean-bazel-build-folder.sh
+        displayName: 'Clean local Bazel build folder'
+        condition: always()

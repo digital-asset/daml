@@ -14,8 +14,8 @@ load(
 )
 load("//bazel_tools/packaging:packaging.bzl", "package_oci_component")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS")
-load("//rules_daml:daml.bzl", "daml_compile")
 load("//daml-script/daml/daml-script-stable:stable-packages.bzl", "SCRIPT_STABLE_PACKAGES")
+load("//rules_daml:daml.bzl", "daml_compile")
 
 # Should match RunnerMainTestBase.DAR_COUNT
 test_dar_count = 5
@@ -80,7 +80,6 @@ da_scala_library(
     ],
     # no doc as our scaladoc pipeline does not support .scrjar
     scaladoc = False,
-    visibility = ["//visibility:public"],
     deps = [
         "//daml-script/auth-utils",
         "//daml-script/converter",
@@ -111,6 +110,7 @@ scaladoc_jar(
 
 da_scala_test(
     name = "unitTests",
+    timeout = "short",
     srcs = glob(
         ["src/test/scala/**/*Spec.scala"],
     ),
@@ -169,7 +169,6 @@ da_scala_binary(
     ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["ee-jar-license"],
-    visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
@@ -225,7 +224,6 @@ package_oci_component(
         for name in SCRIPT_STABLE_PACKAGES
     ],
     tags = ["no-cache"],
-    visibility = ["//visibility:public"],
 )
 
 oci_dar_names_no_failure_status = [

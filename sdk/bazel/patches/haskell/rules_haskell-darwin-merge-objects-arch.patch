@@ -1,0 +1,46 @@
+diff --git a/haskell/cc.bzl b/haskell/cc.bzl
+--- a/haskell/cc.bzl
++++ b/haskell/cc.bzl
+@@ -227,7 +227,9 @@ def ghc_cc_program_args(hs, cc, ld):
+         args.extend([
+             "-pgmlm",
+             ld,
+             "-optlm",
+             "-r",
+         ])
++        if hs.toolchain.is_darwin:
++            args.extend(["-optlm", "-arch", "-optlm", "arm64" if hs.toolchain.is_arm64 else "x86_64"])
+     return args
+diff --git a/haskell/toolchain.bzl b/haskell/toolchain.bzl
+--- a/haskell/toolchain.bzl
++++ b/haskell/toolchain.bzl
+@@ -486,6 +486,7 @@
+             old_libraries = libraries,
+             new_libraries = _haskell_toolchain_libraries(ctx, libraries),
+             is_darwin = ctx.attr.is_darwin,
++            is_arm64 = ctx.attr.is_arm64,
+             is_windows = ctx.attr.is_windows,
+             static_runtime = ctx.attr.static_runtime,
+             fully_static_link = ctx.attr.fully_static_link,
+@@ -531,6 +532,10 @@
+     "is_darwin": attr.bool(
+         doc = "Whether compile on and for Darwin (macOS).",
+         mandatory = True,
+     ),
++    "is_arm64": attr.bool(
++        default = False,
++        doc = "Whether compile on and for arm64 (aarch64).",
++    ),
+     "is_windows": attr.bool(
+         doc = "Whether compile on and for Windows.",
+@@ -698,6 +703,10 @@
+         is_darwin = select({
+             "@rules_haskell//haskell/platforms:darwin": True,
+             "//conditions:default": False,
+         }),
++        is_arm64 = select({
++            "@rules_haskell//haskell/platforms:arm64": True,
++            "//conditions:default": False,
++        }),
+         is_windows = select({
+             "@rules_haskell//haskell/platforms:mingw32": True,

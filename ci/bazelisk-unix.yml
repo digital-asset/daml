@@ -1,0 +1,64 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+parameters:
+  - name: version
+    type: string
+    default: '1.29.0'
+  - name: sha256_linux_amd64
+    type: string
+    default: '5a408715e932c0250d28bd84555f12edbf70117de42f9181691c736eacc4a992'
+  - name: sha256_linux_arm64
+    type: string
+    default: 'e20e8b0f4f240091b7a55bf17b9398bd4f40ee70ae0208dff95dd4c445fb4010'
+  - name: sha256_darwin_amd64
+    type: string
+    default: '16c3d7aa15323a9fb69f56c7ec5733ed18bedb786680d0ba13bb12a3c8083007'
+  - name: sha256_darwin_arm64
+    type: string
+    default: 'cee851f726789227d5561004e9904a52be45c3efb56f8b38b6993d6adbaa0409'
+
+steps:
+  - bash: |
+      set -euo pipefail
+
+      version='${{ parameters.version }}'
+      bin_dir="$HOME/.local/bin"
+      mkdir -p "$bin_dir"
+
+      case "$(uname -s)" in
+        Linux)  os=linux ;;
+        Darwin) os=darwin ;;
+        *) echo "Unsupported OS: $(uname -s)" >&2; exit 1 ;;
+      esac
+
+      case "$(uname -m)" in
+        x86_64|amd64)  arch=amd64 ;;
+        aarch64|arm64) arch=arm64 ;;
+        *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+      esac
+
+      case "${os}_${arch}" in
+        linux_amd64)  expected_sha='${{ parameters.sha256_linux_amd64 }}' ;;
+        linux_arm64)  expected_sha='${{ parameters.sha256_linux_arm64 }}' ;;
+        darwin_amd64) expected_sha='${{ parameters.sha256_darwin_amd64 }}' ;;
+        darwin_arm64) expected_sha='${{ parameters.sha256_darwin_arm64 }}' ;;
+      esac
+
+      asset="bazelisk-${os}-${arch}"
+      url="https://github.com/bazelbuild/bazelisk/releases/download/v${version}/${asset}"
+      tmp="$(mktemp)"
+      trap 'rm -f "$tmp"' EXIT
+
+      curl -sSfL "$url" -o "$tmp"
+      if command -v sha256sum >/dev/null 2>&1; then
+        echo "${expected_sha}  ${tmp}" | sha256sum -c -
+      else
+        echo "${expected_sha}  ${tmp}" | shasum -a 256 -c -
+      fi
+
+      install -m 0755 "$tmp" "$bin_dir/bazelisk"
+      ln -sf "$bin_dir/bazelisk" "$bin_dir/bazel"
+
+      echo "##vso[task.prependpath]$bin_dir"
+    displayName: 'Install Bazelisk ${{ parameters.version }}'

@@ -1,9 +1,9 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//daml-lf:daml-lf.bzl", "SUPPORTED_PROTO_STABLE_LF_VERSIONS")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
+load("//daml-lf:daml-lf.bzl", "SUPPORTED_PROTO_STABLE_LF_VERSIONS")
 
 dpm_inputs = {
     "damlc": "//compiler/damlc:damlc-oci.tar.gz",
@@ -41,6 +41,17 @@ set DPM_VERSION=$$DPM_VERSION
 EOF
 chmod +x $$DIR/bin/dpm.cmd
 """
+
+def _required_tarball_entries(name, version):
+    return [
+        "{}/bin/dpm{}".format(name, ".cmd" if is_windows else ""),
+        "{}/dpm-config.yaml".format(name),
+        "{}/cache/sdk/open-source/{}.yaml".format(name, version),
+        "{}/cache/components/dpm/$$DPM_VERSION/dpm{}".format(name, ".exe" if is_windows else ""),
+    ] + [
+        "{}/cache/components/{}/{}/component.yaml".format(name, component, version)
+        for component in dpm_inputs.keys()
+    ]
 
 def dpm_sdk_tarball(name, version):
     native.genrule(
@@ -96,7 +107,17 @@ EOF
           OUT_PATH=$$PWD/$@
           cd $$TMP
 
-          $$MKTGZ $$OUT_PATH {name}
+          fail_without_output() {{
+            echo "$$1" >&2
+            rm -f $$OUT_PATH
+            exit 1
+          }}
+
+          $$MKTGZ $$OUT_PATH {name} || fail_without_output "mktgz failed to pack {name}"
+          tar -tzf $$OUT_PATH > $$TMP/listing.txt || fail_without_output "cannot list $$OUT_PATH"
+          for entry in {required_entries}; do
+            grep -qxF "$$entry" $$TMP/listing.txt || fail_without_output "$$OUT_PATH is missing $$entry"
+          done
         """.format(
             name = name,
             version = version,
@@ -112,6 +133,7 @@ EOF
                 "\n    ".join(["{name}:\n      version: {version}".format(name = name, version = version) for name in dpm_inputs.keys()]),
             wrapper_script = windows_wrapper_script if is_windows else not_windows_wrapper_script,
             exe = ".exe" if is_windows else "",
+            required_entries = " ".join(_required_tarball_entries(name, version)),
         ),
         visibility = ["//visibility:public"],
     )

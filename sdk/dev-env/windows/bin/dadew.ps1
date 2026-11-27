@@ -1,45 +1,11 @@
-param (
-    [Parameter(Position=0)][String]$action = "help",
-    [Parameter(Position=1)][String]$param1
-)
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 
-$old_erroractionpreference = $erroractionpreference
-$erroractionpreference = 'stop'
+param([string] $Command)
 
-. "$PSScriptRoot\..\libexec\dadew.ps1"
+[Console]::Error.WriteLine("TODO: sdk/dev-env/windows/bin/dadew.ps1 is a placeholder for release-trigger's 'Upload Bazel metrics' step; ci/dev-env-install.ps1 puts jq and gcloud on PATH instead. Remove it once release-trigger no longer calls it")
 
-
-switch ( $action ) {
-    install {
-        da_install
-    }
-    enable {
-        da_enable_win_dev_env
-    }
-    sync {
-        da_sync_scoop -Directory $(If ($param1) { da_resolve_fullpath $param1 } Else { $pwd.Path })
-    }
-    disable {
-        da_reset_path
-    }
-    uninstall {
-        da_uninstall
-    }
-    version {
-        da_version
-    }
-    where {
-        da_where
-    }
-    which {
-        If (!$param1) { da_error("<command> missing") } Else { da_which $param1 }
-    }
-    required-version {
-        da_required_version -Directory $(If ($param1) { da_resolve_fullpath $param1 } Else { $pwd.Path })
-    }
-    default {
-        da_info "Usage: install | enable | sync [directory] | disable | uninstall | version | required-version | where | which <command> | help"
-    }
+switch ($Command) {
+    'enable' { $env:PATH = "$PSScriptRoot;$env:PATH" }
+    'where' { Write-Output $PSScriptRoot }
 }
-
-$erroractionpreference = $old_erroractionpreference

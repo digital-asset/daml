@@ -1,0 +1,33 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+parameters:
+  - name: target
+    type: string
+  - name: name
+    type: string
+
+steps:
+  - bash: |
+      set -euo pipefail
+      cd sdk
+      bazelisk build '${{ parameters.target }}'
+      output_base="$(bazelisk info output_base)"
+      execution_root="$(bazelisk info execution_root)"
+      tool=""
+      while read -r file; do
+        if [ "$(basename "$file")" = '${{ parameters.name }}' ]; then
+          case "$file" in
+            external/*) tool="$output_base/$file" ;;
+            *) tool="$execution_root/$file" ;;
+          esac
+          break
+        fi
+      done < <(bazelisk cquery --output=files '${{ parameters.target }}')
+      if [ -z "$tool" ] || [ ! -x "$tool" ]; then
+        echo "${{ parameters.target }} provides no executable named ${{ parameters.name }}" >&2
+        exit 1
+      fi
+      echo "${{ parameters.name }}: $tool"
+      echo "##vso[task.prependpath]$(dirname "$tool")"
+    displayName: 'Provide ${{ parameters.name }} from ${{ parameters.target }}'
