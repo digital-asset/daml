@@ -15,7 +15,7 @@ import DA.Daml.StablePackages (numStablePackagesForVersion)
 import DA.Test.Process
 import DA.Test.Util
 import qualified Data.ByteString.Lazy as BSL
-import Data.List (intercalate, sortOn, (\\))
+import Data.List (intercalate, sortOn)
 import qualified Data.NameMap as NM
 import Module (unitIdString)
 import Safe (fromJustNote)
@@ -2826,7 +2826,8 @@ tests TestArgs{..} =
             , "--package-root", tmpDir </> "main"
             , "--target", LF.renderVersion targetDevVersion ]
 
-    , testCaseSteps "Package ids are stable across rebuilds" $ \step -> withTempDir $ \tmpDir -> do
+    , testGroup "Package id stability"
+      [ testCaseSteps title $ \step -> withTempDir $ \tmpDir -> do
         step "building lib (package to be imported via data-dependencies)"
         createDirectoryIfMissing True (tmpDir </> "lib")
         writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
@@ -2840,7 +2841,18 @@ tests TestArgs{..} =
             ]
         writeFileUTF8 (tmpDir </> "lib" </> "Lib.daml") $ unlines
             [ "module Lib where"
-            , "data Data = Data ()"
+            , "data Color = Red | Green | Blue deriving (Eq, Show)"
+            , "data Spec = Spec"
+            , "  with"
+            , "    color : Color"
+            , "    label : Text"
+            , "  deriving (Eq, Show)"
+            , "template Thing"
+            , "  with"
+            , "    owner : Party"
+            , "    spec : Spec"
+            , "  where"
+            , "    signatory owner"
             ]
         callProcessSilent damlc
             [ "build"
@@ -2849,23 +2861,34 @@ tests TestArgs{..} =
             , "--target", LF.renderVersion targetDevVersion
             ]
 
-        step "building main (package that imports lib via data-dependencies)"
+        step $ "building main (package that imports lib via " <> dependencyKind <> ")"
         createDirectoryIfMissing True (tmpDir </> "main")
-        writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> componentVersionString
-            , "name: main"
-            , "source: ."
-            , "version: 0.1.0"
-            , "dependencies:"
-            , "  - daml-prim"
-            , "  - daml-stdlib"
-            , "data-dependencies:"
-            , "  - " <> (tmpDir </> "lib" </> "lib.dar")
-            ]
+        let writeMainConfig :: String -> IO ()
+            writeMainConfig kind =
+                writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines $
+                    [ "sdk-version: " <> componentVersionString
+                    , "name: main"
+                    , "source: ."
+                    , "version: 0.1.0"
+                    , "dependencies:"
+                    , "  - daml-prim"
+                    , "  - daml-stdlib"
+                    ] <>
+                    [ "data-dependencies:" | kind == "data-dependencies" ] <>
+                    [ "  - " <> show (tmpDir </> "lib" </> "lib.dar") ]
+        writeMainConfig dependencyKind
         writeFileUTF8 (tmpDir </> "main" </> "Main.daml") $ unlines
             [ "module Main where"
-            , "import Lib qualified"
-            , "data Data = Data Lib.Data"
+            , "import Lib"
+            , "template Holder"
+            , "  with"
+            , "    holder : Party"
+            , "    heldSpec : Spec"
+            , "  where"
+            , "    signatory holder"
+            , "    nonconsuming choice MakeThing : ContractId Thing"
+            , "      controller holder"
+            , "      do create Thing with owner = holder, spec = heldSpec"
             ]
         callProcessSilent damlc
             [ "build"
@@ -2874,7 +2897,11 @@ tests TestArgs{..} =
             , "--target", LF.renderVersion targetDevVersion
             ]
 
-        step "building main again as main2.dar"
+        mainPackageId : _ <- darPackageIds (tmpDir </> "main" </> "main.dar")
+
+        step "building main again via data-dependencies as main2.dar"
+        writeMainConfig "data-dependencies"
+        callProcessSilent damlc ["clean", "--package-root", tmpDir </> "main"]
         callProcessSilent damlc
             [ "build"
             , "--package-root", tmpDir </> "main"
@@ -2882,14 +2909,14 @@ tests TestArgs{..} =
             , "--target", LF.renderVersion targetDevVersion
             ]
 
-        step "compare package ids in main.dar and main2.dar"
-        libPackageIds <- darPackageIds (tmpDir </> "lib" </> "lib.dar")
-        mainPackageIds <- darPackageIds (tmpDir </> "main" </> "main.dar")
-        main2PackageIds <- darPackageIds (tmpDir </> "main" </> "main2.dar")
-        let
-          mainOnlyPackageIds = mainPackageIds \\ libPackageIds
-          main2OnlyPackageIds = main2PackageIds \\ libPackageIds
-        main2OnlyPackageIds @?= mainOnlyPackageIds
+        step "compare main package ids"
+        main2PackageId : _ <- darPackageIds (tmpDir </> "main" </> "main2.dar")
+        main2PackageId @?= mainPackageId
+      | (title, dependencyKind) <-
+          [ ("Package ids are stable across rebuilds", "data-dependencies")
+          , ("Package ids are stable across dependency kinds", "dependencies")
+          ]
+      ]
 
     , testCaseSteps "Standard library exceptions" $ \step -> withTempDir $ \tmpDir -> do
         step "building package to be imported via data-dependencies"
