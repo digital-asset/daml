@@ -14,7 +14,7 @@ jobs:
     name: ubuntu_20_04
     demands: assignment -equals default
   variables:
-    blackduck_script_sha: 8cb32c92416d076ad6fed4cd9c878e73335c2fdb
+    blackduck_script_sha: 6bfad0d00d5cfe64b82e224367e76eaea4814ff1
     bazel_flags: >-
       --local_resources=cpu=HOST_CPUS
       --remote_cache=https://bazel-cache.da-ext.net/202610
