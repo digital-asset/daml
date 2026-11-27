@@ -294,6 +294,28 @@
       }
     }
   },
+  "featurePV38" : {
+    "name" : "LF versions supported by PV38",
+    "cppFlag" : "DAML_PV38",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 1
+          }
+        }
+      },
+      "upperBound" : {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 4
+          }
+        }
+      }
+    }
+  },
   "featureUnstable" : {
     "name" : "Unstable, experimental features",
     "cppFlag" : "DAML_UNSTABLE",
