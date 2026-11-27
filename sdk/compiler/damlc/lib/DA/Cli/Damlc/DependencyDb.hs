@@ -154,16 +154,18 @@ installDependencies packageRoot opts versionInfo pDeps pDataDeps = do
         createDirectoryIfMissing True depsDir
         -- install dependencies
         -----------------------
-        Logger.logDebug logger "Extracting dependencies"
-        depsExtracted <- mapM extractDar deps
-        uncheckedDepsExtracted <- mapM extractDar uncheckedDeps
-        checkSdkVersions versionInfo depsExtracted
-        Logger.logDebug logger "Installing dependencies"
-        forM_ depsExtracted $ installDar depsDir False
-        forM_ uncheckedDepsExtracted $ installDar depsDir False
-        -- install data-dependencies
+        -- Logger.logDebug logger "Extracting dependencies"
+        -- depsExtracted <- mapM extractDar deps
+        -- uncheckedDepsExtracted <- mapM extractDar uncheckedDeps
+        checkSdkVersions versionInfo []
+        -- Logger.logDebug logger "Installing dependencies"
+        -- forM_ depsExtracted $ installDar depsDir False
+        -- forM_ uncheckedDepsExtracted $ installDar depsDir False
+        -- -- install data-dependencies
         ----------------------------
         Logger.logDebug logger "Extracting & installing data-dependency DARs"
+        forM_ deps $ extractDar >=> installDar depsDir True
+        forM_ uncheckedDeps $ extractDar >=> installDar depsDir True
         forM_ dataDepsDars $ extractDar >=> installDar depsDir True
         Logger.logDebug logger "Extracting & installing data-dependency DALFs"
         forM_ dataDepsDalfs $ \fp -> BS.readFile fp >>= installDataDepDalf False depsDir fp
