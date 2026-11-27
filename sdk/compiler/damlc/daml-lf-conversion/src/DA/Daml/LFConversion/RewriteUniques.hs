@@ -1,16 +1,14 @@
 -- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- | Rewrite local system binders' uniques deterministically before LF conversion.
--- GHC allocates uniques from a process-global supply, so loading a dependency's
--- original interface versus a reconstructed data-dependency interface can shift
--- the uniques allocated when compiling otherwise identical source.
---
--- 'DA.Daml.UtilGHC.varPrettyPrint' includes these uniques in system variable
--- names. They therefore appear in LF binders and references, for example the
--- @dt_a1h4@ arguments of a @$WHolder@ constructor wrapper, and affect the package
--- hash. Numbering them in traversal order makes these names independent of
--- earlier interface loading without resetting GHC's shared unique supply.
+-- | We use names derived from GHCs uniques in LF generation via the `varPrettyPrint` function.
+-- These names depend on the Unique counter being the same for each run.
+-- When compiling a package against a data-dependency, GHC is invoked to generate the package interface,
+-- which shifts the Unique counter. This leads to bind names being different when shifting a package from
+-- dependencies to data-dependencies.
+-- To harmonize dependencies and data-dependencies, we want to keep these names the same regardless of what GHC gives us.
+-- We achieve this by rewriting these unique names to use a module-local Unique counter. This is implemented as
+-- a pass afterwards to avoid collisions in GHCs various session caches which index on Uniques.
 module DA.Daml.LFConversion.RewriteUniques
     ( rewriteUniques
     ) where
