@@ -127,7 +127,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
             -- in the dalfInput case we interpret pSrc as the filepath pointing to the dalf.
             -- Note that the package id is obviously wrong but this feature is not something we expose to users.
             pure $ Just
-              ( createArchive pName pVersion versionInfo (LF.PackageId "") bytes [] Nothing (toNormalizedFilePath' ".") [] [] []
+              ( createArchive pName pVersion versionInfo (LF.PackageId "") bytes [] (toNormalizedFilePath' ".") [] [] [] Nothing
               , Nothing
               )
         -- We need runActionSync here to ensure that diagnostics are printed to the terminal.
@@ -196,6 +196,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
                              , edyVersion = pVersion
                              , edyDamlcVersion = T.pack (versionToString versionInfo)
                              , edySource = source
+                             , edyExposedModules = pExposedModules
                              , edyDataDependencies = pointedAt
                              , edyUpgrades = LF.unUpgradedPackageId <$> mbUpgradedPackageId
                              , edyModulePrefixes = pModulePrefixes
@@ -212,7 +213,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
                          , T.pack (show packageRoot)
                          , "."
                          ]
-                 unshipped <- lift $ unshippedSources files
+                 (unshipped, unreported) <- lift $ unshippedSources files
                  unless (null unshipped) $
                      liftIO $ IdeLogger.logWarning (ideLogger service) $ T.concat
                          [ "This DAR will not carry sources compiled into the package that resolve outside source "
@@ -221,24 +222,34 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
                          , T.intercalate ", " [T.pack (show $ fromNormalizedFilePath f) | f <- unshipped]
                          , "."
                          ]
+                 unless (null unreported) $
+                     liftIO $ IdeLogger.logWarning (ideLogger service) $ T.concat
+                         [ "The dependencies of these modules were not reported, so this DAR may carry no source for the "
+                         , "modules they import: "
+                         , T.intercalate ", " [T.pack (show $ fromNormalizedFilePath f) | f <- unreported]
+                         , "."
+                         ]
                  pure
                    ( createArchive
                        pName pVersion versionInfo
                        pkgId
                        dalf
                        dalfDependencies
-                       mbEmbeddedDamlYaml
                        srcRoot
                        files
                        dataFiles
                        ifaces
+                       mbEmbeddedDamlYaml
                    , Just pkgId
                    )
 
-unshippedSources :: [NormalizedFilePath] -> Action [NormalizedFilePath]
+-- | The sources compiled into the package that the DAR will not carry
+unshippedSources :: [NormalizedFilePath] -> Action ([NormalizedFilePath], [NormalizedFilePath])
 unshippedSources files = do
-    graph <- concatMap (fromMaybe []) <$> mapM getDependencies files
-    pure $ S.toList $ S.fromList graph S.\\ S.fromList files
+    graphs <- mapM getDependencies files
+    let reached = concat (catMaybes graphs)
+        unreported = [file | (file, Nothing) <- zip files graphs]
+    pure (S.toList (S.fromList reached S.\\ S.fromList files), unreported)
 
 validateExposedModules :: Maybe [ModuleName] -> [ModuleName] -> MaybeT Action ()
 validateExposedModules mbExposedModules pkgModuleNames = do
@@ -405,13 +416,13 @@ createArchive
     -> LF.PackageId
     -> BSL.ByteString -- ^ DALF
     -> [(T.Text, BS.ByteString, LF.PackageId)] -- ^ DALF dependencies
-    -> Maybe EmbeddedDamlYaml -- ^ The embedded daml.yaml, completed below from the entries written
     -> NormalizedFilePath -- ^ Source root directory
     -> [NormalizedFilePath] -- ^ Module dependencies
     -> [(String, BS.ByteString)] -- ^ Data files
     -> [NormalizedFilePath] -- ^ Interface files
+    -> Maybe EmbeddedDamlYaml -- ^ The embedded daml.yaml
     -> Zip.ZipArchive ()
-createArchive pName pVersion versionInfo pkgId dalf dalfDependencies mbEmbeddedDamlYaml srcRoot fileDependencies dataFiles ifaces
+createArchive pName pVersion versionInfo pkgId dalf dalfDependencies srcRoot fileDependencies dataFiles ifaces mbEmbeddedDamlYaml
  = do
     -- Reads all module source files, and pairs paths (with changed prefix)
     -- with contents as BS. The path must be within the module root path, and
@@ -426,18 +437,19 @@ createArchive pName pVersion versionInfo pkgId dalf dalfDependencies mbEmbeddedD
         entry <- Zip.mkEntrySelector $ pkgName </> fromNormalizedFilePath (makeRelative' ifaceRoot mPath)
         sinkEntryDeterministic Zip.Deflate (sourceFile $ fromNormalizedFilePath mPath) entry
     let dalfName = pkgName </> fullPkgName pName pVersion pkgId <.> "dalf"
-    let dependencies =
-            [ (pkgName </> T.unpack depName <> "-" <> (T.unpack $ LF.unPackageId depPkgId) <> ".dalf", BSL.fromStrict bs)
+    let dependencyEntries =
+            [ ( stringToUnitId (T.unpack depName)
+              , pkgName </> T.unpack depName <> "-" <> (T.unpack $ LF.unPackageId depPkgId) <> ".dalf"
+              , BSL.fromStrict bs
+              )
             | (depName, bs, depPkgId) <- dalfDependencies
             ]
+    let dependencies = [(path, content) | (_, path, content) <- dependencyEntries]
     let dataFiles' =
             [ (pkgName </> "data" </> n, BSC.fromStrict bs)
             | (n, bs) <- dataFiles
             ]
-    let dalfPaths = Map.fromList
-            [ (stringToUnitId (T.unpack depName), path)
-            | ((path, _), (depName, _, _)) <- zip dependencies dalfDependencies
-            ]
+    let dalfPaths = Map.fromList [(unitId, path) | (unitId, path, _) <- dependencyEntries]
     let embeddedFiles =
             [ (embeddedDamlYamlEntryPath, renderEmbeddedDamlYaml dalfPaths embedded)
             | Just embedded <- [mbEmbeddedDamlYaml]

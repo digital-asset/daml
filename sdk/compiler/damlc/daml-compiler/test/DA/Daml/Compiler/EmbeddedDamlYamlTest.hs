@@ -52,6 +52,7 @@ renderTests = testGroup "renderEmbeddedDamlYaml"
         let rendered = render sample
         assertBool "no version key" (not ("version:" `isInfixOf` rendered))
         assertBool "no upgrades key" (not ("upgrades:" `isInfixOf` rendered))
+        assertBool "no exposed-modules key" (not ("exposed-modules:" `isInfixOf` rendered))
         assertBool "no data-dependencies key" (not ("data-dependencies:" `isInfixOf` rendered))
         assertBool "no module-prefixes key" (not ("module-prefixes:" `isInfixOf` rendered))
         assertBool "no build-options key" (not ("build-options:" `isInfixOf` rendered))
@@ -61,6 +62,8 @@ renderTests = testGroup "renderEmbeddedDamlYaml"
     , testCase "always writes a dependencies list" $
         assertInfixOf "dependencies: []" (render sample)
 
+    , testCase "records the modules the package exposes" $
+        assertInfixOf "- A.B" (render sample { edyExposedModules = Just [Ghc.mkModuleName "A.B"] })
     , testCase "records module prefixes" $
         assertInfixOf "foo-1.0.0: V1"
             (render sample { edyModulePrefixes =
@@ -85,6 +88,7 @@ renderTests = testGroup "renderEmbeddedDamlYaml"
         , edyVersion = Nothing
         , edyDamlcVersion = "3.5.2"
         , edySource = "daml"
+        , edyExposedModules = Nothing
         , edyUpgrades = Nothing
         , edyDataDependencies = []
         , edyModulePrefixes = Map.empty

@@ -76,8 +76,8 @@ da_haskell_library(
 )
 
 da_haskell_test(
-    name = "tests",
-    srcs = glob(["test/**/*.hs"]),
+    name = "embedded-daml-yaml-test",
+    srcs = ["test/DA/Daml/Compiler/EmbeddedDamlYamlTest.hs"],
     hackage_deps = [
         "base",
         "bytestring",

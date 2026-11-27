@@ -257,11 +257,11 @@ makeStableDars darDirPath pkgs = withComponentVersions $ do
                 mainPkgId
                 mainPkgDalf
                 deps
-                Nothing
                 (toNormalizedFilePath' damlFileRoot)
                 [toNormalizedFilePath' damlFilePath]
                 [confFile]
                 []
+                Nothing
             darPath = darDirPath </> T.unpack (unPackageName pkgName) <.> "dar"
         createDirectoryIfMissing True $ takeDirectory darPath
         Zip.createArchive darPath archive

@@ -17,12 +17,13 @@ import DA.Test.Util
 import Data.Conduit.Tar.Extra (dropDirectory1)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL.Char8
-import Data.Foldable (asum)
 import qualified Data.Graph as Graph (path)
 import Data.List.Extra
+import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.Set as Set
 import qualified Data.Text as Text
+import qualified Data.Yaml as Yaml
 import System.Directory.Extra
 import System.Environment.Blank
 import System.Exit
@@ -1539,22 +1540,25 @@ roundTripThroughDarWith
 roundTripThroughDarWith beforeRebuild damlc projDir rebuildDir = do
     withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", "built.dar"]
     built <- mainPackageIdOf (projDir </> "built.dar")
+    unpackForRebuild (projDir </> "built.dar") rebuildDir
+    beforeRebuild rebuildDir
+    rebuildOrFail damlc rebuildDir
+    rebuilt <- mainPackageIdOf (rebuildDir </> "rebuilt.dar")
+    pure (built, rebuilt)
 
+-- | Extract a DAR and move the modules it ships to where its daml.yaml says
+-- the source sits, which is what a build in that directory reads.
+unpackForRebuild :: FilePath -> FilePath -> IO ()
+unpackForRebuild dar rebuildDir = do
     createDirectoryIfMissing True rebuildDir
-    archive <- Zip.toArchive <$> BSL.readFile (projDir </> "built.dar")
+    archive <- Zip.toArchive <$> BSL.readFile dar
     Zip.extractFilesFromArchive [Zip.OptDestination rebuildDir] archive
-
     source <- sourceDirectoryOf (rebuildDir </> "daml.yaml")
     shipped <- shippedDamlFiles rebuildDir
     forM_ shipped $ \(packageDir, relative) -> do
         let destination = rebuildDir </> source </> relative
         createDirectoryIfMissing True (takeDirectory destination)
         renamePath (rebuildDir </> packageDir </> relative) destination
-
-    beforeRebuild rebuildDir
-    rebuildOrFail damlc rebuildDir
-    rebuilt <- mainPackageIdOf (rebuildDir </> "rebuilt.dar")
-    pure (built, rebuilt)
 
 -- | Rebuild the unpacked tree
 rebuildOrFail :: FilePath -> FilePath -> IO ()
@@ -1592,15 +1596,7 @@ buildDependencyDar damlc dir name = do
 -- the DAR themselves.
 rebuildFromDar :: FilePath -> FilePath -> FilePath -> IO LF.PackageId
 rebuildFromDar damlc dar rebuildDir = do
-    createDirectoryIfMissing True rebuildDir
-    archive <- Zip.toArchive <$> BSL.readFile dar
-    Zip.extractFilesFromArchive [Zip.OptDestination rebuildDir] archive
-    source <- sourceDirectoryOf (rebuildDir </> "daml.yaml")
-    shipped <- shippedDamlFiles rebuildDir
-    forM_ shipped $ \(packageDir, relative) -> do
-        let destination = rebuildDir </> source </> relative
-        createDirectoryIfMissing True (takeDirectory destination)
-        renamePath (rebuildDir </> packageDir </> relative) destination
+    unpackForRebuild dar rebuildDir
     rebuildOrFail damlc rebuildDir
     mainPackageIdOf (rebuildDir </> "rebuilt.dar")
 
@@ -1620,15 +1616,10 @@ embeddedDamlYamlOf dar = do
 
 sourceDirectoryOf :: FilePath -> IO FilePath
 sourceDirectoryOf damlYaml = do
-    contents <- readFileUTF8 damlYaml
-    case [unquote (dropWhile (== ' ') rest) | line <- lines contents, Just rest <- [stripPrefix "source:" line]] of
-        source : _ -> pure source
-        [] -> fail $ damlYaml <> " names no source directory"
-  where
-    unquote value = fromMaybe value $ asum
-        [ stripPrefix "\"" value >>= stripSuffix "\""
-        , stripPrefix "'" value >>= stripSuffix "'"
-        ]
+    fields <- Yaml.decodeFileThrow damlYaml :: IO (Map.Map Text.Text Yaml.Value)
+    case Map.lookup "source" fields of
+        Just (Yaml.String source) -> pure (Text.unpack source)
+        _ -> fail $ damlYaml <> " names no source directory"
 
 -- | The .daml files a DAR ships, as the package directory they sit in and
 -- their path relative to it.

@@ -40,6 +40,8 @@ data EmbeddedDamlYaml = EmbeddedDamlYaml
       -- ^ Recorded as @components: [damlc:\<version\>]@.
     , edySource :: FilePath
       -- ^ Relative to the package root. See 'relativeSource'.
+    , edyExposedModules :: Maybe [Ghc.ModuleName]
+      -- ^ Exposed modules, duplicating those carried in the conf
     , edyDataDependencies :: [Ghc.UnitId]
       -- ^ The DALFs in this DAR the package was built against
     , edyUpgrades :: Maybe LF.PackageId
@@ -65,6 +67,7 @@ embeddedDamlYamlValue dalfPaths EmbeddedDamlYaml {..} = A.object $
         ]
         ++ [ "version" A..= LF.unPackageVersion version | Just version <- [edyVersion] ]
         ++ [ "upgrades" A..= LF.unPackageId predecessor | Just predecessor <- [edyUpgrades] ]
+        ++ [ "exposed-modules" A..= exposed | Just exposed <- [edyExposedModules] ]
         ++ [ "data-dependencies" A..= dataDependencyPaths | not (null dataDependencyPaths) ]
         ++ [ "module-prefixes" A..= edyModulePrefixes | not (Map.null edyModulePrefixes) ]
         ++ [ "build-options" A..= edyBuildOptions | not (null edyBuildOptions) ]
@@ -83,6 +86,7 @@ renderEmbeddedDamlYaml dalfPaths =
         , "name"
         , "version"
         , "source"
+        , "exposed-modules"
         , "dependencies"
         , "data-dependencies"
         , "upgrades"
@@ -108,8 +112,10 @@ dataDependencies :: [Ghc.UnitId] -> [Ghc.UnitId]
 dataDependencies carried =
     [ unitId
     | unitId <- carried
-    , LF.unPackageName (fst (LF.splitUnitId unitId)) `notElem` map T.pack basePackages
+    , fst (LF.splitUnitId unitId) `notElem` compilerPackages
     ]
+  where
+    compilerPackages = map (LF.PackageName . T.pack) basePackages
 
 -- | Build-options exposing the direct DALF dependencies, which otherwise
 -- remain hidden and fail to resolve on import.
