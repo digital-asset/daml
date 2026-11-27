@@ -143,6 +143,9 @@ data PackageConfigFields = PackageConfigFields
     -- If this is specified, all modules from the package will be remapped
     -- under the given prefix.
     , pUpgradeDar :: Maybe UpgradedPackage
+    , pBuildOptions :: [String]
+    -- ^ Only daml.yaml's declared "build-options" list; ad-hoc flags passed
+    -- directly on the command line are not captured here.
     }
 
 -- | Parse the daml.yaml for package specific config fields.
@@ -158,6 +161,7 @@ parsePackageConfig package = do
     pDataDependencies <- fromMaybe [] <$> queryPackageConfig ["data-dependencies"] package
     pModulePrefixes <- fromMaybe Map.empty <$> queryPackageConfig ["module-prefixes"] package
     pUpgradeDar <- queryPackageConfig ["upgrades"] package
+    pBuildOptions <- fromMaybe [] <$> queryPackageConfig ["build-options"] package
     Right PackageConfigFields {..}
 
 checkPkgConfig :: PackageConfigFields -> [T.Text]

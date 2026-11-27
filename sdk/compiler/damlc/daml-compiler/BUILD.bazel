@@ -4,12 +4,14 @@
 load(
     "//bazel_tools:haskell.bzl",
     "da_haskell_library",
+    "da_haskell_test",
 )
 
 da_haskell_library(
     name = "daml-compiler",
     srcs = glob(["src/**/*.hs"]),
     hackage_deps = [
+        "aeson",
         "async",
         "base",
         "bytestring",
@@ -41,6 +43,7 @@ da_haskell_library(
         "uniplate",
         "unordered-containers",
         "utf8-string",
+        "yaml",
         "zip",
         "zip-archive",
     ],
@@ -63,10 +66,31 @@ da_haskell_library(
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-package-config",
         "//compiler/damlc/daml-preprocessor",
+        "//compiler/damlc/daml-resolution-config",
         "//compiler/damlc/daml-rule-types",
         "//compiler/damlc/stable-packages:stable-packages-lib",
         "//compiler/script-service/client",
         "//component-version/hs:component-version-class-lib",
         "//libs-haskell/da-hs-base",
+    ],
+)
+
+da_haskell_test(
+    name = "embedded-daml-yaml-test",
+    srcs = ["test/DA/Daml/Compiler/EmbeddedDamlYamlTest.hs"],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "ghc-lib-parser",
+        "tasty",
+        "tasty-hunit",
+        "text",
+    ],
+    main_function = "DA.Daml.Compiler.EmbeddedDamlYamlTest.main",
+    src_strip_prefix = "test",
+    deps = [
+        ":daml-compiler",
+        "//compiler/daml-lf-ast",
     ],
 )

@@ -724,6 +724,7 @@ da_haskell_test(
         "tasty-hunit",
         "tasty-quickcheck",
         "text",
+        "yaml",
         "zip-archive",
     ],
     main_function = "DA.Test.Packaging.main",

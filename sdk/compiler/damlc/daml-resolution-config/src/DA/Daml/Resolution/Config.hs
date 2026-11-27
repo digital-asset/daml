@@ -10,6 +10,7 @@ module DA.Daml.Resolution.Config
   , getResolutionData
   , resolutionFileEnvVar
   , readDependencyPackagesFromResolution
+  , basePackages
   , toPosixFilePath
   , getDpmDependencyPaths
   , DependencyPackages (..)
