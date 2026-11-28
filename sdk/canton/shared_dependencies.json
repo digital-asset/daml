@@ -2,7 +2,7 @@
   "ch.qos.logback:logback-classic" : "1.6.3",
   "ch.qos.logback:logback-core" : "1.6.3",
   "com.auth0:java-jwt" : "4.2.1",
-  "com.auth0:jwks-rsa" : "0.21.2",
+  "com.auth0:jwks-rsa" : "0.24.2",
   "com.fasterxml.jackson.core:jackson-annotations" : "2.22",
   "com.fasterxml.jackson.core:jackson-core" : "2.22.4",
   "com.fasterxml.jackson.core:jackson-databind" : "2.22.4",
@@ -68,6 +68,6 @@
   "org.reactivestreams:reactive-streams-examples" : "1.0.4",
   "org.reactivestreams:reactive-streams-tck" : "1.0.4",
   "org.sangria-graphql:sangria-spray-json_2.13" : "1.0.2",
-  "org.scalaz:scalaz-scalacheck-binding_2.13" : "7.2.33-scalacheck-1.15",
+  "org.scalaz:scalaz-scalacheck-binding_2.13" : "7.2.36-scalacheck-1.15",
   "org.slf4j:jul-to-slf4j" : "2.0.20"
 }
